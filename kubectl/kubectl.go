@@ -10,7 +10,7 @@ import (
 var spaceRegex = regexp.MustCompile(`\s`)
 
 // GetNamespaceNames returns all namespace for your kube config
-func GetNamespaceNames() ([][]byte, error) {
+func GetNamespaceNames() ([]string, error) {
 	out, err := exec.Command("kubectl", "get", "namespaces").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubectl namespace: %v", err)
@@ -19,18 +19,18 @@ func GetNamespaceNames() ([][]byte, error) {
 	lines := bytes.Split(out, []byte("\n"))
 	lines = lines[1 : len(lines)-1]
 
-	namespaces := [][]byte{}
+	namespaces := []string{}
 
 	for _, line := range lines {
 		if string(line) != "" {
-			namespaces = append(namespaces, line[0:spaceRegex.FindIndex(line)[0]])
+			namespaces = append(namespaces, string(line[0:spaceRegex.FindIndex(line)[0]]))
 		}
 	}
 	return namespaces, nil
 }
 
 // GetPodsByNamespace returns all pods in a namespace
-func GetPodsByNamespace(namespace string) ([][]byte, error) {
+func GetPodsByNamespace(namespace string) ([]string, error) {
 	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace).Output()
 	if (err) != nil {
 		return nil, fmt.Errorf("failed to execute kubectl get pods: %v", err)
@@ -45,10 +45,10 @@ func GetPodsByNamespace(namespace string) ([][]byte, error) {
 		lines = lines[1:]
 	}
 
-	pods := [][]byte{}
+	pods := []string{}
 	for _, line := range lines {
 		podName := line[0:spaceRegex.FindIndex(line)[0]]
-		pods = append(pods, podName)
+		pods = append(pods, string(podName))
 	}
 
 	return pods, nil
