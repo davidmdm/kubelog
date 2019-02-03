@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/davidmdm/kubelog/kubectl"
@@ -65,12 +66,19 @@ func getAppPods(n, a string) ([]string, error) {
 
 func merge(channels ...<-chan string) <-chan string {
 	out := make(chan string)
+	var wg sync.WaitGroup
+	wg.Add(len(channels))
 	for _, c := range channels {
 		go func(c <-chan string) {
 			for v := range c {
 				out <- v
 			}
+			wg.Done()
 		}(c)
 	}
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
 	return out
 }
