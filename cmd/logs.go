@@ -42,12 +42,27 @@ func monitorPods(n, a string, activePods []string, timestamp bool) {
 		}
 	}
 
+	inactivePodIdxs := []int{}
+	for i, pod := range activePods {
+		if !contains(appPods, pod) {
+			inactivePodIdxs = append(inactivePodIdxs, i)
+		}
+	}
+	for i := len(inactivePodIdxs) - 1; i > -1; i-- {
+		activePods = append(activePods[:inactivePodIdxs[i]], activePods[inactivePodIdxs[i]+1:]...)
+	}
+
+	fmt.Println("active pods:", activePods)
+
+	if len(activePods) == 0 {
+		fmt.Printf("there are no active pods for `%s` in `%s`\n", a, n)
+	}
+
 	go func() {
 		for line := range merge(logs...) {
 			fmt.Print(line)
 		}
 	}()
-
 }
 
 func getAppPods(n, a string) ([]string, error) {
