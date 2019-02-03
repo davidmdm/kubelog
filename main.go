@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/davidmdm/kubelog/cmd"
 )
@@ -27,7 +28,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "namespace required\n")
 			return
 		}
-		cmd.StreamLogs(*namespace, args[0], *timestamp)
+		cmd.StreamLogs(strings.ToLower(*namespace), args[0], *timestamp)
 		return
 	}
 
