@@ -52,8 +52,6 @@ func monitorPods(n, a string, activePods []string, timestamp bool) {
 		activePods = append(activePods[:inactivePodIdxs[i]], activePods[inactivePodIdxs[i]+1:]...)
 	}
 
-	fmt.Println("active pods:", activePods)
-
 	if len(activePods) == 0 {
 		fmt.Printf("there are no active pods for `%s` in `%s`\n", a, n)
 	}
