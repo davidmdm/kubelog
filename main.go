@@ -10,6 +10,7 @@ import (
 
 func main() {
 	namespace := flag.String("n", "", "namespace")
+	timestamp := flag.Bool("t", false, "enables timestamps for logs")
 
 	flag.Parse()
 	args := flag.Args()
@@ -26,9 +27,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "namespace required\n")
 			return
 		}
-		if err := cmd.StreamLogs(*namespace, args[0]); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to stream logs: %v", err)
-		}
+		cmd.StreamLogs(*namespace, args[0], *timestamp)
 		return
 	}
 
