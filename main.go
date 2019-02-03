@@ -12,6 +12,7 @@ import (
 func main() {
 	namespace := flag.String("n", "", "namespace")
 	timestamp := flag.Bool("t", false, "enables timestamps for logs")
+	since := flag.Int("s", 0, "get logs since how many seconds")
 
 	flag.Parse()
 	args := flag.Args()
@@ -28,7 +29,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "namespace required\n")
 			return
 		}
-		cmd.StreamLogs(strings.ToLower(*namespace), args[0], *timestamp)
+		cmd.StreamLogs(strings.ToLower(*namespace), args[0], *timestamp, *since)
 		return
 	}
 
