@@ -1,13 +1,28 @@
 package kubectl
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 )
 
 var spaceRegex = regexp.MustCompile(`\s`)
+var podStatus = regexp.MustCompile(`Running|Terminating|CrashLoopBackoff`)
+
+const (
+	red     = 31
+	green   = 32
+	yellow  = 33
+	blue    = 34
+	magenta = 35
+	cyan    = 36
+)
+
+var i int
+var colors = []int{cyan, magenta, yellow, blue, red, green}
 
 // GetNamespaceNames returns all namespace for your kube config
 func GetNamespaceNames() ([]string, error) {
@@ -37,19 +52,59 @@ func GetPodsByNamespace(namespace string) ([]string, error) {
 	}
 
 	lines := bytes.Split(out, []byte{'\n'})
-	lines = lines[:len(lines)-1]
 
-	if len(lines) < 2 {
-		lines = [][]byte{}
-	} else {
-		lines = lines[1:]
+	podLines := [][]byte{}
+	for _, line := range lines {
+		if podStatus.Match(line) {
+			podLines = append(podLines, line)
+		}
 	}
 
 	pods := []string{}
-	for _, line := range lines {
+	for _, line := range podLines {
 		podName := line[0:spaceRegex.FindIndex(line)[0]]
 		pods = append(pods, string(podName))
 	}
 
 	return pods, nil
+}
+
+// FollowLog return a channel that gives you the strings line by line of a pods log
+func FollowLog(namepace, pod string) (<-chan (string), error) {
+
+	cmd := exec.Command("kubectl", "logs", pod, "-f", "-n", namepace)
+	cmd.Stderr = os.Stderr
+
+	rc, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect sub pipe: %v", err)
+	}
+	if err = cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start running kubectl: %v", err)
+	}
+
+	r := bufio.NewReader(rc)
+	lines := make(chan string)
+	prefix := color(pod)
+
+	go func() {
+		defer rc.Close()
+		defer close(lines)
+		for {
+			l, err := r.ReadString('\n')
+			if err != nil {
+				// handle error somehow???
+				return
+			}
+			lines <- prefix + "  " + l
+		}
+	}()
+
+	return lines, nil
+}
+
+func color(str string) (ret string) {
+	ret = fmt.Sprintf("\033[%d;3m%s\033[0m", colors[i], str)
+	i = (i + 1) % len(colors)
+	return
 }
