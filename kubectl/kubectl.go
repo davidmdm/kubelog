@@ -71,9 +71,7 @@ func GetPodsByNamespace(namespace string) ([]string, error) {
 
 // FollowLog return a channel that gives you the strings line by line of a pods log
 func FollowLog(namepace, pod string) (<-chan (string), error) {
-
 	cmd := exec.Command("kubectl", "logs", pod, "-f", "-n", namepace)
-	cmd.Stderr = os.Stderr
 
 	rc, err := cmd.StdoutPipe()
 	if err != nil {
@@ -93,7 +91,7 @@ func FollowLog(namepace, pod string) (<-chan (string), error) {
 		for {
 			l, err := r.ReadString('\n')
 			if err != nil {
-				// handle error somehow???
+				fmt.Fprintf(os.Stderr, "\nunexpected error reading log for pod %s: %v\n\n", pod, err)
 				return
 			}
 			lines <- prefix + "  " + l
