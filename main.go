@@ -12,7 +12,7 @@ import (
 func main() {
 	namespace := flag.String("n", "", "namespace")
 	timestamp := flag.Bool("t", false, "enables timestamps for logs")
-	since := flag.Int("s", 0, "get logs since how many seconds")
+	since := flag.String("s", "", "get logs since how many seconds")
 
 	flag.Parse()
 	args := flag.Args()

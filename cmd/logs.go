@@ -11,7 +11,7 @@ import (
 )
 
 // StreamLogs streams all pods for an application in a namespace to stdout
-func StreamLogs(n, a string, timestamp bool, since int) {
+func StreamLogs(n, a string, timestamp bool, since string) {
 	activePods := []string{}
 	monitorPods(n, a, activePods, timestamp, since)
 
@@ -19,9 +19,9 @@ func StreamLogs(n, a string, timestamp bool, since int) {
 	<-make(chan struct{})
 }
 
-func monitorPods(n, a string, activePods []string, timestamp bool, since int) {
+func monitorPods(n, a string, activePods []string, timestamp bool, since string) {
 
-	defer time.AfterFunc(10*time.Second, func() { monitorPods(n, a, activePods, timestamp, 0) })
+	defer time.AfterFunc(10*time.Second, func() { monitorPods(n, a, activePods, timestamp, "") })
 
 	appPods, err := getAppPods(n, a)
 	if err != nil {
