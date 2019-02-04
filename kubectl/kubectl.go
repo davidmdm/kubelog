@@ -47,7 +47,7 @@ func GetNamespaceNames() ([]string, error) {
 // GetPodsByNamespace returns all pods in a namespace
 func GetPodsByNamespace(namespace string) ([]string, error) {
 	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace).Output()
-	if (err) != nil {
+	if err != nil {
 		return nil, fmt.Errorf("failed to execute kubectl get pods: %v", err)
 	}
 

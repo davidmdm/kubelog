@@ -24,7 +24,7 @@ func LogNamespace(name string) error {
 		for result := range results {
 			fmt.Println(strings.ToUpper(result.name))
 			for _, app := range result.apps {
-				fmt.Println(string(app))
+				fmt.Println(app)
 			}
 			fmt.Println()
 		}
@@ -52,7 +52,7 @@ func LogNamespace(name string) error {
 					results <- ns
 				}
 				wg.Done()
-			}(string(name))
+			}(name)
 		}
 
 		wg.Wait()

@@ -17,8 +17,10 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
+	n := strings.ToLower(*namespace)
+
 	if len(args) == 2 && args[0] == "get" && (args[1] == "apps" || args[1] == "app") {
-		if err := cmd.LogNamespace(*namespace); err != nil {
+		if err := cmd.LogNamespace(n); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get apps: %v\n", err)
 		}
 		return
@@ -29,7 +31,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "namespace required\n")
 			return
 		}
-		cmd.StreamLogs(strings.ToLower(*namespace), args[0], *timestamp, *since)
+		cmd.StreamLogs(n, args[0], *timestamp, *since)
 		return
 	}
 
