@@ -70,7 +70,7 @@ func getAppPods(n, a string) ([]string, error) {
 	}
 	appPods := []string{}
 	for _, pod := range pods {
-		if strings.HasPrefix(pod, a) {
+		if strings.HasPrefix(pod, a+"-") {
 			appPods = append(appPods, pod)
 		}
 	}
