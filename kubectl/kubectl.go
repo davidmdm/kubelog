@@ -7,45 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"sync"
-
-	"github.com/davidmdm/kubelog/util"
 
 	"github.com/davidmdm/kubelog/util/color"
 )
 
 var spaceRegex = regexp.MustCompile(`\s`)
 var runningStatus = regexp.MustCompile(`\sRunning\s`)
-
-// PodList list is a threadsafe list of pods
-type PodList struct {
-	pods []string
-	sync.Mutex
-}
-
-// AddPod adds pod to the podlist in a thread safe manner. Returns true if pod was added.
-func (p *PodList) AddPod(pod string) bool {
-	p.Lock()
-	defer p.Unlock()
-	if !util.HasString(p.pods, pod) {
-		p.pods = append(p.pods, pod)
-		return true
-	}
-	return false
-}
-
-// RemovePod removes a pod from the podlist in a thread safe manner. Returns true if pod was found and removed.
-func (p *PodList) RemovePod(pod string) bool {
-	p.Lock()
-	defer p.Unlock()
-	for i := range p.pods {
-		if p.pods[i] == pod {
-			p.pods = append(p.pods[:i], p.pods[i+1:]...)
-			return true
-		}
-	}
-	return false
-}
 
 // GetNamespaceNames returns all namespace for your kube config
 func GetNamespaceNames() ([]string, error) {
@@ -93,7 +60,7 @@ func GetRunningPodsByNamespace(namespace string) ([]string, error) {
 }
 
 // FollowLog return a channel that gives you the strings line by line of a pods log
-func FollowLog(namepace, pod string, timestamp bool, since string) (<-chan (string), error) {
+func FollowLog(namepace, pod string, activePods *PodList, timestamp bool, since string) (<-chan (string), error) {
 	args := []string{"logs", pod, "-f", "-n", namepace}
 	if timestamp {
 		args = append(args, "--timestamps")
@@ -112,6 +79,8 @@ func FollowLog(namepace, pod string, timestamp bool, since string) (<-chan (stri
 		return nil, fmt.Errorf("failed to start running kubectl: %v", err)
 	}
 
+	activePods.Add(pod)
+
 	r := bufio.NewReader(rc)
 	lines := make(chan string)
 	prefix := color.Color(pod)
@@ -123,6 +92,7 @@ func FollowLog(namepace, pod string, timestamp bool, since string) (<-chan (stri
 			l, err := r.ReadString('\n')
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\nunexpected error reading log for pod %s: %v\n\n", pod, err)
+				activePods.Remove(pod)
 				return
 			}
 			lines <- prefix + "  " + l

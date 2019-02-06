@@ -8,19 +8,18 @@ import (
 	"time"
 
 	"github.com/davidmdm/kubelog/kubectl"
-	"github.com/davidmdm/kubelog/util"
 )
 
 // StreamLogs streams all pods for an application in a namespace to stdout
 func StreamLogs(n, a string, timestamp bool, since string) {
-	activePods := []string{}
+	activePods := new(kubectl.PodList)
 	monitorPods(n, a, activePods, timestamp, since)
 
 	// here we want to purposefully block the thread forever as we continue monitoring in other goroutines
 	<-make(chan struct{})
 }
 
-func monitorPods(n, a string, activePods []string, timestamp bool, since string) {
+func monitorPods(n, a string, activePods *kubectl.PodList, timestamp bool, since string) {
 
 	defer time.AfterFunc(10*time.Second, func() { monitorPods(n, a, activePods, timestamp, "") })
 
@@ -32,28 +31,17 @@ func monitorPods(n, a string, activePods []string, timestamp bool, since string)
 
 	logs := []<-chan string{}
 	for _, pod := range appPods {
-		if !util.HasString(activePods, pod) {
-			log, err := kubectl.FollowLog(n, pod, timestamp, since)
+		if !activePods.Has(pod) {
+			log, err := kubectl.FollowLog(n, pod, activePods, timestamp, since)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\nfailed to follow log for pod %s: %v\n\n", pod, err)
 			} else {
 				logs = append(logs, log)
-				activePods = append(activePods, pod)
 			}
 		}
 	}
 
-	inactivePodIdxs := []int{}
-	for i, pod := range activePods {
-		if !util.HasString(appPods, pod) {
-			inactivePodIdxs = append(inactivePodIdxs, i)
-		}
-	}
-	for i := len(inactivePodIdxs) - 1; i > -1; i-- {
-		activePods = append(activePods[:inactivePodIdxs[i]], activePods[inactivePodIdxs[i]+1:]...)
-	}
-
-	if len(activePods) == 0 {
+	if activePods.Length() == 0 {
 		fmt.Printf("there are no active pods for `%s` in `%s`\n", a, n)
 	}
 
