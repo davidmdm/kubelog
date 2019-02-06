@@ -60,7 +60,7 @@ func GetRunningPodsByNamespace(namespace string) ([]string, error) {
 }
 
 // FollowLog return a channel that gives you the strings line by line of a pods log
-func FollowLog(namepace, pod string, activePods *PodList, timestamp bool, since string) (<-chan (string), error) {
+func FollowLog(namepace, pod string, activePods *PodList, timestamp bool, since string) error {
 	args := []string{"logs", pod, "-f", "-n", namepace}
 	if timestamp {
 		args = append(args, "--timestamps")
@@ -73,31 +73,29 @@ func FollowLog(namepace, pod string, activePods *PodList, timestamp bool, since 
 
 	rc, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect sub pipe: %v", err)
+		return fmt.Errorf("failed to connect sub pipe: %v", err)
 	}
 	if err = cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start running kubectl: %v", err)
+		return fmt.Errorf("failed to start running kubectl: %v", err)
 	}
 
 	activePods.Add(pod)
 
 	r := bufio.NewReader(rc)
-	lines := make(chan string)
 	prefix := color.Color(pod)
 
 	go func() {
 		defer rc.Close()
-		defer close(lines)
 		for {
-			l, err := r.ReadString('\n')
+			line, err := r.ReadString('\n')
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\nunexpected error reading log for pod %s: %v\n\n", pod, err)
 				activePods.Remove(pod)
 				return
 			}
-			lines <- prefix + "  " + l
+			fmt.Printf("%s  %s", prefix, line)
 		}
 	}()
 
-	return lines, nil
+	return nil
 }

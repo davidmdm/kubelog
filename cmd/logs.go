@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/davidmdm/kubelog/kubectl"
@@ -29,14 +28,10 @@ func monitorPods(n, a string, activePods *kubectl.PodList, timestamp bool, since
 		return
 	}
 
-	logs := []<-chan string{}
 	for _, pod := range appPods {
 		if !activePods.Has(pod) {
-			log, err := kubectl.FollowLog(n, pod, activePods, timestamp, since)
-			if err != nil {
+			if err := kubectl.FollowLog(n, pod, activePods, timestamp, since); err != nil {
 				fmt.Fprintf(os.Stderr, "\nfailed to follow log for pod %s: %v\n\n", pod, err)
-			} else {
-				logs = append(logs, log)
 			}
 		}
 	}
@@ -44,12 +39,6 @@ func monitorPods(n, a string, activePods *kubectl.PodList, timestamp bool, since
 	if activePods.Length() == 0 {
 		fmt.Printf("there are no active pods for `%s` in `%s`\n", a, n)
 	}
-
-	go func() {
-		for line := range merge(logs...) {
-			fmt.Print(line)
-		}
-	}()
 }
 
 func getAppPods(n, a string) ([]string, error) {
@@ -64,23 +53,4 @@ func getAppPods(n, a string) ([]string, error) {
 		}
 	}
 	return appPods, nil
-}
-
-func merge(channels ...<-chan string) <-chan string {
-	out := make(chan string)
-	var wg sync.WaitGroup
-	wg.Add(len(channels))
-	for _, c := range channels {
-		go func(c <-chan string) {
-			for v := range c {
-				out <- v
-			}
-			wg.Done()
-		}(c)
-	}
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
 }
