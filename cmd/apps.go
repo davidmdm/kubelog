@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/davidmdm/kubelog/kubectl"
+	"github.com/davidmdm/kubelog/util"
 )
 
 type namespace struct {
@@ -82,7 +83,7 @@ func getNamespace(name string) (*namespace, error) {
 }
 
 func getAppsByNamespace(namespace string) ([]string, error) {
-	pods, err := kubectl.GetPodsByNamespace(namespace)
+	pods, err := kubectl.GetRunningPodsByNamespace(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods: %v", err)
 	}
@@ -90,7 +91,7 @@ func getAppsByNamespace(namespace string) ([]string, error) {
 	apps := []string{}
 	for _, pod := range pods {
 		app := getAppFromPodName(pod)
-		if !contains(apps, app) {
+		if !util.HasString(apps, app) {
 			apps = append(apps, app)
 		}
 	}
@@ -109,13 +110,4 @@ func getAppFromPodName(pod string) string {
 		return pod
 	}
 	return pod[:idx[len(idx)-2]]
-}
-
-func contains(set []string, elem string) bool {
-	for _, value := range set {
-		if elem == value {
-			return true
-		}
-	}
-	return false
 }

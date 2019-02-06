@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/davidmdm/kubelog/kubectl"
+	"github.com/davidmdm/kubelog/util"
 )
 
 // StreamLogs streams all pods for an application in a namespace to stdout
@@ -31,7 +32,7 @@ func monitorPods(n, a string, activePods []string, timestamp bool, since string)
 
 	logs := []<-chan string{}
 	for _, pod := range appPods {
-		if !contains(activePods, pod) {
+		if !util.HasString(activePods, pod) {
 			log, err := kubectl.FollowLog(n, pod, timestamp, since)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\nfailed to follow log for pod %s: %v\n\n", pod, err)
@@ -44,7 +45,7 @@ func monitorPods(n, a string, activePods []string, timestamp bool, since string)
 
 	inactivePodIdxs := []int{}
 	for i, pod := range activePods {
-		if !contains(appPods, pod) {
+		if !util.HasString(appPods, pod) {
 			inactivePodIdxs = append(inactivePodIdxs, i)
 		}
 	}
@@ -64,7 +65,7 @@ func monitorPods(n, a string, activePods []string, timestamp bool, since string)
 }
 
 func getAppPods(n, a string) ([]string, error) {
-	pods, err := kubectl.GetPodsByNamespace(n)
+	pods, err := kubectl.GetRunningPodsByNamespace(n)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods by namespace: %v", err)
 	}

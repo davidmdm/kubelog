@@ -7,22 +7,45 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sync"
+
+	"github.com/davidmdm/kubelog/util"
+
+	"github.com/davidmdm/kubelog/util/color"
 )
 
 var spaceRegex = regexp.MustCompile(`\s`)
-var podStatus = regexp.MustCompile(`Running|Terminating|CrashLoopBackoff`)
+var runningStatus = regexp.MustCompile(`\sRunning\s`)
 
-const (
-	red     = 31
-	green   = 32
-	yellow  = 33
-	blue    = 34
-	magenta = 35
-	cyan    = 36
-)
+// PodList list is a threadsafe list of pods
+type PodList struct {
+	pods []string
+	sync.Mutex
+}
 
-var i int
-var colors = []int{cyan, magenta, yellow, blue, red, green}
+// AddPod adds pod to the podlist in a thread safe manner. Returns true if pod was added.
+func (p *PodList) AddPod(pod string) bool {
+	p.Lock()
+	defer p.Unlock()
+	if !util.HasString(p.pods, pod) {
+		p.pods = append(p.pods, pod)
+		return true
+	}
+	return false
+}
+
+// RemovePod removes a pod from the podlist in a thread safe manner. Returns true if pod was found and removed.
+func (p *PodList) RemovePod(pod string) bool {
+	p.Lock()
+	defer p.Unlock()
+	for i := range p.pods {
+		if p.pods[i] == pod {
+			p.pods = append(p.pods[:i], p.pods[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
 
 // GetNamespaceNames returns all namespace for your kube config
 func GetNamespaceNames() ([]string, error) {
@@ -44,8 +67,8 @@ func GetNamespaceNames() ([]string, error) {
 	return namespaces, nil
 }
 
-// GetPodsByNamespace returns all pods in a namespace
-func GetPodsByNamespace(namespace string) ([]string, error) {
+// GetRunningPodsByNamespace returns all pods in a namespace
+func GetRunningPodsByNamespace(namespace string) ([]string, error) {
 	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute kubectl get pods: %v", err)
@@ -55,7 +78,7 @@ func GetPodsByNamespace(namespace string) ([]string, error) {
 
 	podLines := [][]byte{}
 	for _, line := range lines {
-		if podStatus.Match(line) {
+		if runningStatus.Match(line) {
 			podLines = append(podLines, line)
 		}
 	}
@@ -91,7 +114,7 @@ func FollowLog(namepace, pod string, timestamp bool, since string) (<-chan (stri
 
 	r := bufio.NewReader(rc)
 	lines := make(chan string)
-	prefix := color(pod)
+	prefix := color.Color(pod)
 
 	go func() {
 		defer rc.Close()
@@ -107,10 +130,4 @@ func FollowLog(namepace, pod string, timestamp bool, since string) (<-chan (stri
 	}()
 
 	return lines, nil
-}
-
-func color(str string) (ret string) {
-	ret = fmt.Sprintf("\033[%d;3m%s\033[0m", colors[i], str)
-	i = (i + 1) % len(colors)
-	return
 }
