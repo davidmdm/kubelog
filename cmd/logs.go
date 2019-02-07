@@ -10,17 +10,17 @@ import (
 )
 
 // StreamLogs streams all pods for an application in a namespace to stdout
-func StreamLogs(n, a string, timestamp bool, since string) {
+func StreamLogs(n, a string, opts kubectl.LogOptions) {
 	activePods := new(kubectl.PodList)
-	monitorPods(n, a, activePods, timestamp, since)
+	monitorPods(n, a, activePods, opts)
 
 	// here we want to purposefully block the thread forever as we continue monitoring in other goroutines
 	<-make(chan struct{})
 }
 
-func monitorPods(n, a string, activePods *kubectl.PodList, timestamp bool, since string) {
+func monitorPods(n, a string, activePods *kubectl.PodList, opts kubectl.LogOptions) {
 
-	defer time.AfterFunc(10*time.Second, func() { monitorPods(n, a, activePods, timestamp, "") })
+	defer time.AfterFunc(10*time.Second, func() { monitorPods(n, a, activePods, kubectl.LogOptions{Timestamps: opts.Timestamps}) })
 
 	appPods, err := getAppPods(n, a)
 	if err != nil {
@@ -30,7 +30,7 @@ func monitorPods(n, a string, activePods *kubectl.PodList, timestamp bool, since
 
 	for _, pod := range appPods {
 		if !activePods.Has(pod) {
-			if err := kubectl.FollowLog(n, pod, activePods, timestamp, since); err != nil {
+			if err := kubectl.FollowLog(n, pod, activePods, opts); err != nil {
 				fmt.Fprintf(os.Stderr, "\nfailed to follow log for pod %s: %v\n\n", pod, err)
 			}
 		}

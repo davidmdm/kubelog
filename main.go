@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/davidmdm/kubelog/cmd"
+	"github.com/davidmdm/kubelog/kubectl"
 )
 
 func main() {
@@ -31,7 +32,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "namespace required\n")
 			return
 		}
-		cmd.StreamLogs(n, args[0], *timestamp, *since)
+		cmd.StreamLogs(n, args[0], kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
 		return
 	}
 

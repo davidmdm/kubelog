@@ -59,14 +59,19 @@ func GetRunningPodsByNamespace(namespace string) ([]string, error) {
 	return pods, nil
 }
 
+type LogOptions struct {
+	Timestamps bool
+	Since      string
+}
+
 // FollowLog return a channel that gives you the strings line by line of a pods log
-func FollowLog(namepace, pod string, activePods *PodList, timestamp bool, since string) error {
+func FollowLog(namepace, pod string, activePods *PodList, opts LogOptions) error {
 	args := []string{"logs", pod, "-f", "-n", namepace}
-	if timestamp {
+	if opts.Timestamps {
 		args = append(args, "--timestamps")
 	}
-	if since != "" {
-		args = append(args, fmt.Sprintf("--since=%s", since))
+	if opts.Since != "" {
+		args = append(args, fmt.Sprintf("--since=%s", opts.Since))
 	}
 
 	cmd := exec.Command("kubectl", args...)
