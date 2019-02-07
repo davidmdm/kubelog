@@ -23,6 +23,7 @@ func main() {
 	if len(args) == 2 && args[0] == "get" && (args[1] == "apps" || args[1] == "app") {
 		if err := cmd.LogNamespace(n); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get apps: %v\n", err)
+			os.Exit(2)
 		}
 		return
 	}
@@ -30,11 +31,12 @@ func main() {
 	if len(args) == 1 {
 		if *namespace == "" {
 			fmt.Fprintf(os.Stderr, "namespace required\n")
-			return
+			os.Exit(1)
 		}
 		cmd.StreamLogs(n, args[0], kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
 		return
 	}
 
 	fmt.Fprintf(os.Stderr, "command not recognized. Available commands are `get apps` or `[app]`\n")
+	os.Exit(1)
 }
