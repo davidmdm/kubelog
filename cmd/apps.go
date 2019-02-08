@@ -9,9 +9,15 @@ import (
 	"github.com/davidmdm/kubelog/util"
 )
 
+const indent = "  "
+
 type namespace struct {
 	name string
 	apps []string
+}
+
+func (n namespace) String() string {
+	return fmt.Sprintf("%s\n%s%s", n.name, indent, strings.Join(n.apps, "\n"+indent))
 }
 
 // LogNamespace will log apps for a namespace. If an empty string is provided as namespace
@@ -23,10 +29,7 @@ func LogNamespace(name string) error {
 
 	go func() {
 		for result := range results {
-			fmt.Println(strings.ToUpper(result.name))
-			for _, app := range result.apps {
-				fmt.Println(app)
-			}
+			fmt.Println(result)
 			fmt.Println()
 		}
 		for err := range errors {
