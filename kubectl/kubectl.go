@@ -12,7 +12,7 @@ import (
 )
 
 var spaceRegex = regexp.MustCompile(`\s`)
-var podStatus = regexp.MustCompile(`\s(Running|CrashLoopBackoff|Error|Terminating)\s`)
+var podStatus = regexp.MustCompile(`\s(Running|CrashLoopBackOff|Error|Terminating)\s`)
 
 // GetNamespaceNames returns all namespace for your kube config
 func GetNamespaceNames() ([]string, error) {
