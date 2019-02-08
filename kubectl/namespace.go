@@ -11,13 +11,13 @@ const indent = "  "
 
 // Namespace represents a kubectl namespace. The name and the apps within it.
 type Namespace struct {
-	name string
-	apps []string
+	Name string
+	Apps []string
 }
 
 // String satisfies the stringer interface.
 func (n Namespace) String() string {
-	return fmt.Sprintf("%s\n%s%s", n.name, indent, strings.Join(n.apps, "\n"+indent))
+	return fmt.Sprintf("%s\n%s%s", n.Name, indent, strings.Join(n.Apps, "\n"+indent))
 }
 
 // GetNamespace returns a namespace for a specified namespace name.
@@ -35,7 +35,7 @@ func GetNamespace(name string) (*Namespace, error) {
 		}
 	}
 
-	return &Namespace{name: name, apps: apps}, nil
+	return &Namespace{Name: name, Apps: apps}, nil
 }
 
 func getAppFromPodName(pod string) string {

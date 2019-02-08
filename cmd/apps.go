@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/davidmdm/kubelog/kubectl"
@@ -21,31 +22,22 @@ func LogNamespace(name string) error {
 		namespaceNames = append(namespaceNames, name)
 	}
 
-	results := make(chan *kubectl.Namespace)
-	errors := make(chan error)
-	done := make(chan (struct{}))
-
-	go func() {
-		for result := range results {
-			fmt.Println(result)
-			fmt.Println()
-		}
-		for err := range errors {
-			fmt.Printf("\nerror: %v\n\n", err)
-		}
-		done <- struct{}{}
-	}()
+	results := []*kubectl.Namespace{}
+	errors := []error{}
 
 	var wg sync.WaitGroup
 	wg.Add(len(namespaceNames))
 
+	var mu sync.Mutex
 	for _, name := range namespaceNames {
 		go func(name string) {
 			ns, err := kubectl.GetNamespace(name)
+			mu.Lock()
+			defer mu.Unlock()
 			if err != nil {
-				errors <- fmt.Errorf("error fetching namespace %s: %v", name, err)
+				errors = append(errors, fmt.Errorf("error fetching namespace %s: %v", name, err))
 			} else {
-				results <- ns
+				results = append(results, ns)
 			}
 			wg.Done()
 		}(name)
@@ -53,10 +45,17 @@ func LogNamespace(name string) error {
 
 	wg.Wait()
 
-	close(results)
-	close(errors)
+	sort.SliceStable(results, func(i, j int) bool {
+		return results[i].Name < results[j].Name
+	})
 
-	<-done
+	for _, result := range results {
+		fmt.Println(result)
+		fmt.Println()
+	}
+	for _, err := range errors {
+		fmt.Printf("\nerror: %v\n\n", err)
+	}
 
 	return nil
 }
