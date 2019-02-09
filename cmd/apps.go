@@ -54,7 +54,7 @@ func LogNamespace(name string) error {
 		fmt.Println()
 	}
 	for _, err := range errors {
-		fmt.Printf("\nerror: %v\n\n", err)
+		fmt.Printf("error: %v\n", err)
 	}
 
 	return nil

@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/davidmdm/kubelog/cmd"
 	"github.com/davidmdm/kubelog/kubectl"
@@ -18,10 +17,8 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
-	n := strings.ToLower(*namespace)
-
 	if len(args) == 2 && args[0] == "get" && (args[1] == "apps" || args[1] == "app") {
-		if err := cmd.LogNamespace(n); err != nil {
+		if err := cmd.LogNamespace(*namespace); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get apps: %v\n", err)
 			os.Exit(2)
 		}
@@ -33,7 +30,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "namespace required\n")
 			os.Exit(1)
 		}
-		cmd.StreamLogs(n, args[0], kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
+		cmd.StreamLogs(*namespace, args[0], kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
 		return
 	}
 

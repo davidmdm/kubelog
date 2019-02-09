@@ -12,7 +12,7 @@ import (
 )
 
 var spaceRegex = regexp.MustCompile(`\s`)
-var podStatus = regexp.MustCompile(`\s(Running|CrashLoopBackOff|Error|Terminating)\s`)
+var podStatus = regexp.MustCompile(`\s(Running|CrashLoopBackOff|Error)\s`)
 
 // GetNamespaceNames returns all namespace for your kube config
 func GetNamespaceNames() ([]string, error) {
@@ -34,8 +34,8 @@ func GetNamespaceNames() ([]string, error) {
 	return namespaces, nil
 }
 
-// GetRunningPodsByNamespace returns all pods in a namespace
-func GetRunningPodsByNamespace(namespace string) ([]string, error) {
+// GetPodsByNamespace returns all pods in a namespace
+func GetPodsByNamespace(namespace string) ([]string, error) {
 	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute kubectl get pods: %v", err)
@@ -59,6 +59,8 @@ func GetRunningPodsByNamespace(namespace string) ([]string, error) {
 	return pods, nil
 }
 
+// LogOptions sets whether the logs should include a timestamp and how far back since now we need to fetch the logs.
+// by default there are no timestamps and logs will be fetched since their beginning.
 type LogOptions struct {
 	Timestamps bool
 	Since      string

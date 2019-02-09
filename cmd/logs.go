@@ -11,8 +11,7 @@ import (
 
 // StreamLogs streams all pods for an application in a namespace to stdout
 func StreamLogs(n, a string, opts kubectl.LogOptions) {
-	activePods := new(kubectl.PodList)
-	monitorPods(n, a, activePods, opts)
+	monitorPods(n, a, new(kubectl.PodList), opts)
 
 	// here we want to purposefully block the thread forever as we continue monitoring in other goroutines
 	<-make(chan struct{})
@@ -24,14 +23,14 @@ func monitorPods(n, a string, activePods *kubectl.PodList, opts kubectl.LogOptio
 
 	appPods, err := getAppPods(n, a)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "\nfailed to fetch pods: %v\ntrying again in 10 seconds...\n\n", err)
+		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\ntrying again in 10 seconds...\n", err)
 		return
 	}
 
 	for _, pod := range appPods {
 		if !activePods.Has(pod) {
 			if err := kubectl.FollowLog(n, pod, activePods, opts); err != nil {
-				fmt.Fprintf(os.Stderr, "\nfailed to follow log for pod %s: %v\n\n", pod, err)
+				fmt.Fprintf(os.Stderr, "failed to follow log for pod %s: %v\n", pod, err)
 			}
 		}
 	}
@@ -42,7 +41,7 @@ func monitorPods(n, a string, activePods *kubectl.PodList, opts kubectl.LogOptio
 }
 
 func getAppPods(n, a string) ([]string, error) {
-	pods, err := kubectl.GetRunningPodsByNamespace(n)
+	pods, err := kubectl.GetPodsByNamespace(n)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods by namespace: %v", err)
 	}

@@ -22,7 +22,7 @@ func (n Namespace) String() string {
 
 // GetNamespace returns a namespace for a specified namespace name.
 func GetNamespace(name string) (*Namespace, error) {
-	pods, err := GetRunningPodsByNamespace(name)
+	pods, err := GetPodsByNamespace(name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods: %v", err)
 	}
