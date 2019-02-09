@@ -2,62 +2,12 @@ package kubectl
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 
 	"github.com/davidmdm/kubelog/util/color"
 )
-
-var spaceRegex = regexp.MustCompile(`\s`)
-var podStatus = regexp.MustCompile(`\s(Running|CrashLoopBackOff|Error)\s`)
-
-// GetNamespaceNames returns all namespace for your kube config
-func GetNamespaceNames() ([]string, error) {
-	out, err := exec.Command("kubectl", "get", "namespaces").Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get kubectl namespace: %v", err)
-	}
-
-	lines := bytes.Split(out, []byte("\n"))
-	lines = lines[1 : len(lines)-1]
-
-	namespaces := []string{}
-
-	for _, line := range lines {
-		if string(line) != "" {
-			namespaces = append(namespaces, string(line[0:spaceRegex.FindIndex(line)[0]]))
-		}
-	}
-	return namespaces, nil
-}
-
-// GetPodsByNamespace returns all pods in a namespace
-func GetPodsByNamespace(namespace string) ([]string, error) {
-	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace).Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute kubectl get pods: %v", err)
-	}
-
-	lines := bytes.Split(out, []byte{'\n'})
-
-	podLines := [][]byte{}
-	for _, line := range lines {
-		if podStatus.Match(line) {
-			podLines = append(podLines, line)
-		}
-	}
-
-	pods := []string{}
-	for _, line := range podLines {
-		podName := line[0:spaceRegex.FindIndex(line)[0]]
-		pods = append(pods, string(podName))
-	}
-
-	return pods, nil
-}
 
 // LogOptions sets whether the logs should include a timestamp and how far back since now we need to fetch the logs.
 // by default there are no timestamps and logs will be fetched since their beginning.
