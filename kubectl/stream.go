@@ -17,8 +17,8 @@ type LogOptions struct {
 }
 
 // FollowLog return a channel that gives you the strings line by line of a pods log
-func FollowLog(namepace, pod string, activePods *PodList, opts LogOptions) error {
-	args := []string{"logs", pod, "-f", "-n", namepace}
+func FollowLog(namespace, pod string, activePods *PodList, opts LogOptions) error {
+	args := []string{"logs", pod, "-f", "-n", namespace}
 	if opts.Timestamps {
 		args = append(args, "--timestamps")
 	}
@@ -39,7 +39,7 @@ func FollowLog(namepace, pod string, activePods *PodList, opts LogOptions) error
 	activePods.Add(pod)
 
 	r := bufio.NewReader(rc)
-	prefix := color.Color(pod)
+	prefix := color.Color(namespace + "/" + pod)
 
 	go func() {
 		defer rc.Close()
