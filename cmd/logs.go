@@ -49,7 +49,9 @@ func getAppPods(n, a string) ([]string, error) {
 
 	r, err := regexp.Compile("^" + strings.Replace(a, "*", `\w*`, -1) + "-")
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile application regex: %v", err)
+		// The error is fatal so we must exit the application.
+		fmt.Fprintf(os.Stderr, "failed to compile application regex: %v\n", err)
+		os.Exit(3)
 	}
 
 	appPods := []string{}
