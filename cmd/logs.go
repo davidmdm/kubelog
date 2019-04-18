@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -45,9 +46,16 @@ func getAppPods(n, a string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods by namespace: %v", err)
 	}
+
+	r, err := regexp.Compile("^" + strings.Replace(a, "*", `\w*`, -1) + "-")
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile application regex: %v", err)
+	}
+
 	appPods := []string{}
+
 	for _, pod := range pods {
-		if strings.HasPrefix(pod, a+"-") {
+		if r.Match([]byte(pod)) {
 			appPods = append(appPods, pod)
 		}
 	}
