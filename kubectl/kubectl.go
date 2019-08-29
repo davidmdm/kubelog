@@ -49,3 +49,16 @@ func GetServicesByNamespace(name string) ([]string, error) {
 	}
 	return strings.Split(string(out[1:len(out)-1]), " "), nil
 }
+
+// GetServicePods gets all podname for a service
+func GetServicePods(n, serviceName string) ([]string, error) {
+	selector, err := exec.Command("kubectl", "-n", n, "get", "svc", serviceName, "-o", "jsonpath='{.spec.selector.app}'").Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service selector: %v", err)
+	}
+	pods, err := GetPodsByNamespace(n, string(selector[1:len(selector)-1]))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pods by namespace: %v", err)
+	}
+	return pods, nil
+}

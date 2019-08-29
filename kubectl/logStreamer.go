@@ -16,8 +16,14 @@ type LogOptions struct {
 	Since      string
 }
 
+var activePods = PodList{}
+
 // FollowLog return a channel that gives you the strings line by line of a pods log
-func FollowLog(namespace, pod string, activePods *PodList, opts LogOptions) error {
+func FollowLog(namespace, pod string, opts LogOptions) error {
+	if activePods.Has(pod) {
+		return nil
+	}
+
 	args := []string{"logs", pod, "-f", "-n", namespace}
 	if opts.Timestamps {
 		args = append(args, "--timestamps")
