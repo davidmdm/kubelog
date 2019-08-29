@@ -59,3 +59,8 @@ func LogNamespace(name string) error {
 
 	return nil
 }
+
+// Tail streams all pods for an application in a namespace to stdout
+func Tail(namespace, service string, opts kubectl.LogOptions) error {
+	return kubectl.TailLogs(namespace, service, opts)
+}

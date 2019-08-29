@@ -30,7 +30,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "namespace required\n")
 			os.Exit(1)
 		}
-		cmd.StreamLogs(*namespace, args[0], kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
+		cmd.Tail(*namespace, args[0], kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
 		return
 	}
 
