@@ -18,8 +18,8 @@ type LogOptions struct {
 
 var activePods = PodList{}
 
-// FollowLog return a channel that gives you the strings line by line of a pods log
-func FollowLog(namespace, pod string, opts LogOptions) error {
+// TailLogs return a channel that gives you the strings line by line of a pods log
+func TailLogs(namespace, pod string, opts LogOptions) error {
 	if activePods.Has(pod) {
 		return nil
 	}

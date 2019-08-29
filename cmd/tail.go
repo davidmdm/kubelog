@@ -27,7 +27,7 @@ func monitorPods(namespace, service string, opts kubectl.LogOptions) {
 		return
 	}
 	for _, pod := range pods {
-		if err := kubectl.FollowLog(namespace, pod, opts); err != nil {
+		if err := kubectl.TailLogs(namespace, pod, opts); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to follow log for pod %s: %v\n", pod, err)
 		}
 	}
