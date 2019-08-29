@@ -17,9 +17,9 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 
-	if len(args) == 2 && args[0] == "get" && (args[1] == "apps" || args[1] == "app") {
+	if len(args) == 2 && args[0] == "get" && (args[1] == "svc" || args[1] == "services") {
 		if err := cmd.LogNamespace(*namespace); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to get apps: %v\n", err)
+			fmt.Fprintf(os.Stderr, "failed to get services: %v\n", err)
 			os.Exit(2)
 		}
 		return

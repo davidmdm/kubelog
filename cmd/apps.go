@@ -31,13 +31,13 @@ func LogNamespace(name string) error {
 	var mu sync.Mutex
 	for _, name := range namespaceNames {
 		go func(name string) {
-			ns, err := kubectl.GetNamespace(name)
+			services, err := kubectl.GetServicesByNamespace(name)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
 				errors = append(errors, fmt.Errorf("error fetching namespace %s: %v", name, err))
 			} else {
-				results = append(results, ns)
+				results = append(results, &kubectl.Namespace{Name: name, Apps: services})
 			}
 			wg.Done()
 		}(name)

@@ -83,6 +83,15 @@ func GetNamespace(name string) (*Namespace, error) {
 	return &Namespace{Name: name, Apps: apps}, nil
 }
 
+// GetServicesByNamespace will return the service names by namespace
+func GetServicesByNamespace(name string) ([]string, error) {
+	out, err := exec.Command("kubectl", "-n", name, "get", "services", "-o", "jsonpath='{.items[*].metadata.name}'").Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service names: %v", err)
+	}
+	return strings.Split(string(out[1:len(out)-1]), " "), nil
+}
+
 func getAppFromPodName(pod string) string {
 	idx := []int{}
 	for i, b := range []byte(pod) {
