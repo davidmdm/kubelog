@@ -1,13 +1,10 @@
 package kubectl
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
 	"regexp"
 	"strings"
-
-	"github.com/davidmdm/kubelog/util"
 )
 
 const indent = "  "
@@ -28,59 +25,20 @@ func (n Namespace) String() string {
 
 // GetNamespaceNames returns all namespace for your kube config
 func GetNamespaceNames() ([]string, error) {
-	out, err := exec.Command("kubectl", "get", "namespaces").Output()
+	out, err := exec.Command("kubectl", "get", "namespaces", "-o", "jsonpath='{.items[*].metadata.name}'").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubectl namespaces: %v", err)
 	}
-
-	lines := bytes.Split(out, []byte("\n"))
-	lines = lines[1 : len(lines)-1]
-
-	namespaces := []string{}
-
-	for _, line := range lines {
-		if string(line) != "" {
-			namespaces = append(namespaces, string(line[0:spaceRegex.FindIndex(line)[0]]))
-		}
-	}
-	return namespaces, nil
+	return strings.Split(string(out[1:len(out)-1]), " "), nil
 }
 
 // GetPodsByNamespace returns all pods in a namespace
-func GetPodsByNamespace(namespace string) ([]string, error) {
-	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace).Output()
+func GetPodsByNamespace(namespace, selector string) ([]string, error) {
+	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace, "--selector", "app="+selector, "-o", "jsonpath='{.items[*].metadata.name}'").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute kubectl get pods: %v", err)
 	}
-
-	lines := bytes.Split(out, []byte{'\n'})
-	pods := []string{}
-	for _, line := range lines {
-		if podStatus.Match(line) {
-			podName := line[0:spaceRegex.FindIndex(line)[0]]
-			pods = append(pods, string(podName))
-		}
-	}
-
-	return pods, nil
-}
-
-// GetNamespace returns a namespace for a specified namespace name.
-func GetNamespace(name string) (*Namespace, error) {
-	pods, err := GetPodsByNamespace(name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get pods: %v", err)
-	}
-
-	apps := []string{}
-	for _, pod := range pods {
-		app := getAppFromPodName(pod)
-		if !util.HasString(apps, app) {
-			apps = append(apps, app)
-		}
-	}
-
-	return &Namespace{Name: name, Apps: apps}, nil
+	return strings.Split(string(out[1:len(out)-1]), " "), nil
 }
 
 // GetServicesByNamespace will return the service names by namespace
@@ -90,17 +48,4 @@ func GetServicesByNamespace(name string) ([]string, error) {
 		return nil, fmt.Errorf("failed to get service names: %v", err)
 	}
 	return strings.Split(string(out[1:len(out)-1]), " "), nil
-}
-
-func getAppFromPodName(pod string) string {
-	idx := []int{}
-	for i, b := range []byte(pod) {
-		if b == '-' {
-			idx = append(idx, i)
-		}
-	}
-	if len(idx) < 2 {
-		return pod
-	}
-	return pod[:idx[len(idx)-2]]
 }

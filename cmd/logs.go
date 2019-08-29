@@ -3,8 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"regexp"
-	"strings"
+	"os/exec"
 	"time"
 
 	"github.com/davidmdm/kubelog/kubectl"
@@ -22,7 +21,7 @@ func monitorPods(n, a string, activePods *kubectl.PodList, opts kubectl.LogOptio
 
 	defer time.AfterFunc(10*time.Second, func() { monitorPods(n, a, activePods, kubectl.LogOptions{Timestamps: opts.Timestamps}) })
 
-	appPods, err := getAppPods(n, a)
+	appPods, err := getServicePods(n, a)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\ntrying again in 10 seconds...\n", err)
 		return
@@ -41,25 +40,17 @@ func monitorPods(n, a string, activePods *kubectl.PodList, opts kubectl.LogOptio
 	}
 }
 
-func getAppPods(n, a string) ([]string, error) {
-	pods, err := kubectl.GetPodsByNamespace(n)
+func getServicePods(n, serviceName string) ([]string, error) {
+
+	selector, err := exec.Command("kubectl", "-n", n, "get", "svc", serviceName, "-o", "jsonpath='{.spec.selector.app}'").Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service selector: %v", err)
+	}
+
+	pods, err := kubectl.GetPodsByNamespace(n, string(selector[1:len(selector)-1]))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods by namespace: %v", err)
 	}
 
-	r, err := regexp.Compile("^" + strings.Replace(a, "*", `\w*`, -1) + "-")
-	if err != nil {
-		// The error is fatal so we must exit the application.
-		fmt.Fprintf(os.Stderr, "failed to compile application regex: %v\n", err)
-		os.Exit(3)
-	}
-
-	appPods := []string{}
-
-	for _, pod := range pods {
-		if r.Match([]byte(pod)) {
-			appPods = append(appPods, pod)
-		}
-	}
-	return appPods, nil
+	return pods, nil
 }
