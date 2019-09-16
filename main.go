@@ -25,15 +25,14 @@ func main() {
 		return
 	}
 
-	if len(args) == 1 {
-		if *namespace == "" {
-			fmt.Fprintf(os.Stderr, "namespace required\n")
-			os.Exit(1)
-		}
-		cmd.Tail(*namespace, args[0], kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
-		return
+	if *namespace == "" {
+		fmt.Fprintf(os.Stderr, "namespace required\n")
+		os.Exit(1)
 	}
-
-	fmt.Fprintf(os.Stderr, "command not recognized. Available commands are `get apps` or `[app]`\n")
-	os.Exit(1)
+	err := cmd.Tail(*namespace, args, kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "command not recognized. Available commands are `get apps` or `[app]`\n")
+		os.Exit(1)
+	}
+	os.Exit(0)
 }

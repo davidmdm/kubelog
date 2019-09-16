@@ -54,7 +54,7 @@ func GetServicesByNamespace(name string) ([]string, error) {
 func GetServicePods(n, serviceName string) ([]string, error) {
 	selector, err := exec.Command("kubectl", "-n", n, "get", "svc", serviceName, "-o", "jsonpath='{.spec.selector.app}'").Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get service selector: %v", err)
+		return nil, fmt.Errorf("failed to get %s service selector: %v", serviceName, err)
 	}
 	pods, err := GetPodsByNamespace(n, string(selector[1:len(selector)-1]))
 	if err != nil {
