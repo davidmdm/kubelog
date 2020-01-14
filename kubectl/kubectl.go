@@ -3,14 +3,10 @@ package kubectl
 import (
 	"fmt"
 	"os/exec"
-	"regexp"
 	"strings"
 )
 
 const indent = "  "
-
-var spaceRegex = regexp.MustCompile(`\s`)
-var podStatus = regexp.MustCompile(`\s(Running|CrashLoopBackOff|Error)\s`)
 
 // Namespace represents a kubectl namespace. The name and the apps within it.
 type Namespace struct {
@@ -25,38 +21,38 @@ func (n Namespace) String() string {
 
 // GetNamespaceNames returns all namespace for your kube config
 func GetNamespaceNames() ([]string, error) {
-	out, err := exec.Command("kubectl", "get", "namespaces", "-o", "jsonpath='{.items[*].metadata.name}'").Output()
+	out, err := exec.Command("kubectl", "get", "namespaces", "-o", "jsonpath={.items[*].metadata.name}").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubectl namespaces: %v", err)
 	}
-	return strings.Split(string(out[1:len(out)-1]), " "), nil
+	return strings.Split(string(out), " "), nil
 }
 
 // GetPodsByNamespace returns all pods in a namespace
 func GetPodsByNamespace(namespace, selector string) ([]string, error) {
-	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace, "--selector", "app="+selector, "-o", "jsonpath='{.items[*].metadata.name}'").Output()
+	out, err := exec.Command("kubectl", "get", "pods", "-n", namespace, "--selector", "app="+selector, "-o", "jsonpath={.items[*].metadata.name}").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute kubectl get pods: %v", err)
 	}
-	return strings.Split(string(out[1:len(out)-1]), " "), nil
+	return strings.Split(string(out), " "), nil
 }
 
 // GetServicesByNamespace will return the service names by namespace
 func GetServicesByNamespace(name string) ([]string, error) {
-	out, err := exec.Command("kubectl", "-n", name, "get", "services", "-o", "jsonpath='{.items[*].metadata.name}'").Output()
+	out, err := exec.Command("kubectl", "-n", name, "get", "services", "-o", "jsonpath={.items[*].metadata.name}").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service names: %v", err)
 	}
-	return strings.Split(string(out[1:len(out)-1]), " "), nil
+	return strings.Split(string(out), " "), nil
 }
 
 // GetServicePods gets all podname for a service
 func GetServicePods(n, serviceName string) ([]string, error) {
-	selector, err := exec.Command("kubectl", "-n", n, "get", "svc", serviceName, "-o", "jsonpath='{.spec.selector.app}'").Output()
+	selector, err := exec.Command("kubectl", "-n", n, "get", "svc", serviceName, "-o", "jsonpath={.spec.selector.app}").Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get %s service selector: %v", serviceName, err)
 	}
-	pods, err := GetPodsByNamespace(n, string(selector[1:len(selector)-1]))
+	pods, err := GetPodsByNamespace(n, string(selector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods by namespace: %v", err)
 	}
