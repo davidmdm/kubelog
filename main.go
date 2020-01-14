@@ -29,10 +29,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "namespace required\n")
 		os.Exit(1)
 	}
-	err := cmd.Tail(*namespace, args, kubectl.LogOptions{Timestamps: *timestamp, Since: *since})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "command not recognized. Available commands are `get apps` or `[app]`\n")
-		os.Exit(1)
+
+	if len(args) > 0 {
+		if err := cmd.Tail(*namespace, args, kubectl.LogOptions{Timestamps: *timestamp, Since: *since}); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to tail logs\n")
+			os.Exit(1)
+		}
+		return
 	}
-	os.Exit(0)
+
+	fmt.Fprintf(os.Stderr, "command not recognized. Available commands are `get svc` or `[services]`\n")
+	os.Exit(1)
 }
