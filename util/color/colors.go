@@ -21,3 +21,18 @@ func Color(str string) (ret string) {
 	i = (i + 1) % len(colors)
 	return
 }
+
+// Red returns a red string
+func Red(str string) string {
+	return fmt.Sprintf("\033[%d;3m%s\033[0m", red, str)
+}
+
+// Yellow returns a yellow string
+func Yellow(str string) string {
+	return fmt.Sprintf("\033[%d;3m%s\033[0m", yellow, str)
+}
+
+// Cyan returns a cyan string
+func Cyan(str string) string {
+	return fmt.Sprintf("\033[%d;3m%s\033[0m", cyan, str)
+}

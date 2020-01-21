@@ -2,6 +2,7 @@ package kubectl
 
 import (
 	"fmt"
+	"github.com/davidmdm/kubelog/util/color"
 	"os/exec"
 	"strings"
 )
@@ -10,13 +11,16 @@ const indent = "  "
 
 // Namespace represents a kubectl namespace. The name and the apps within it.
 type Namespace struct {
-	Name string
-	Apps []string
+	Name     string
+	Services []string
 }
 
 // String satisfies the stringer interface.
 func (n Namespace) String() string {
-	return fmt.Sprintf("%s\n%s%s", n.Name, indent, strings.Join(n.Apps, "\n"+indent))
+	if len(n.Services) == 0 {
+		return fmt.Sprintf("%s\n%s%s", color.Cyan(n.Name), indent, color.Yellow("(empty)"))
+	}
+	return fmt.Sprintf("%s\n%s%s", color.Cyan(n.Name), indent, strings.Join(n.Services, "\n"+indent))
 }
 
 // GetNamespaceNames returns all namespace for your kube config
@@ -43,7 +47,13 @@ func GetServicesByNamespace(name string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service names: %v", err)
 	}
-	return strings.Split(string(out), " "), nil
+	result := []string{}
+	for _, str := range strings.Split(string(out), " ") {
+		if str != "" {
+			result = append(result, str)
+		}
+	}
+	return result, nil
 }
 
 // GetServicePods gets all podname for a service

@@ -25,11 +25,11 @@ func LogNamespace(name string) error {
 	results := []*kubectl.Namespace{}
 	errors := []error{}
 
-	var wg sync.WaitGroup
-	wg.Add(len(namespaceNames))
-
 	var mu sync.Mutex
+	var wg sync.WaitGroup
+
 	for _, name := range namespaceNames {
+		wg.Add(1)
 		go func(name string) {
 			services, err := kubectl.GetServicesByNamespace(name)
 			mu.Lock()
@@ -37,7 +37,7 @@ func LogNamespace(name string) error {
 			if err != nil {
 				errors = append(errors, fmt.Errorf("error fetching namespace %s: %v", name, err))
 			} else {
-				results = append(results, &kubectl.Namespace{Name: name, Apps: services})
+				results = append(results, &kubectl.Namespace{Name: name, Services: services})
 			}
 			wg.Done()
 		}(name)
@@ -49,12 +49,15 @@ func LogNamespace(name string) error {
 		return results[i].Name < results[j].Name
 	})
 
-	for _, result := range results {
-		fmt.Println(result)
-		fmt.Println()
+	for i := range results {
+		fmt.Println(results[i])
+		if i < len(results)-1 {
+			fmt.Println()
+		}
 	}
+
 	for _, err := range errors {
-		fmt.Printf("error: %v\n", err)
+		fmt.Printf("%v\n", err)
 	}
 
 	return nil
