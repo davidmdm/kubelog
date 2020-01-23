@@ -9,7 +9,7 @@ import (
 // podList list is a threadsafe list of pods
 type podList struct {
 	pods []string
-	mu   sync.Mutex
+	mu   sync.RWMutex
 }
 
 // add adds pod to the podlist in a thread safe manner. Returns true if pod was added.
@@ -38,14 +38,14 @@ func (p *podList) remove(pod string) bool {
 
 // has checks if a pod is contained within the podlist
 func (p *podList) has(pod string) bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return util.HasString(p.pods, pod)
 }
 
 // Length returns the how many pods are in the list
 func (p *podList) Length() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return len(p.pods)
 }
