@@ -6,23 +6,18 @@ import (
 
 // Tail streams all pods for an application in a namespace to stdout
 func Tail(namespace string, services []string, opts kubectl.LogOptions) error {
-	c := make(chan error)
-
 	if len(services) == 1 && services[0] == "*" {
-		var err error
-		services, err = kubectl.GetServicesByNamespace(namespace)
+		svcs, err := kubectl.GetServicesByNamespace(namespace)
 		if err != nil {
 			return err
 		}
+		services = svcs
 	}
 
 	for _, service := range services {
-		go func(service string) {
-			err := kubectl.TailLogs(namespace, service, opts)
-			if err != nil {
-				c <- err
-			}
-		}(service)
+		go kubectl.TailLogs(namespace, service, opts)
 	}
-	return <-c
+
+	// at this point we never want to return since we want to monitor the logs forever
+	select {}
 }

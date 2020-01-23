@@ -17,39 +17,36 @@ type LogOptions struct {
 	Since      string
 }
 
-// TailLogs return a channel that gives you the strings line by line of a pods log
-func TailLogs(namespace, service string, opts LogOptions) error {
+// TailLogs will start outputting all logs to stdout for a every pod in the given service for a specific namespace
+func TailLogs(namespace, service string, opts LogOptions) {
 	activePods := new(podList)
-
-	monitorPods := func() {
-		pods, err := GetServicePods(namespace, service)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\ntrying again in 10 seconds...\n", err)
-			return
-		}
-		if len(pods) == 0 {
-			fmt.Fprintf(os.Stderr, "There are no pods for service %s", service)
-			return
-		}
-		for _, pod := range pods {
-			if activePods.has(pod) {
-				continue
-			}
-			if err := tailPod(namespace, pod, activePods, opts); err != nil {
-				fmt.Fprintf(os.Stderr, "failed to tail pod %s: %v\n", pod, err)
-			}
-		}
-	}
-
-	monitorPods()
+	monitorPods(activePods, namespace, service, opts)
 	for range time.NewTicker(10 * time.Second).C {
-		monitorPods()
+		monitorPods(activePods, namespace, service, opts)
 	}
-
-	return nil
 }
 
-func tailPod(namespace, pod string, activePods *podList, opts LogOptions) error {
+func monitorPods(activePods *podList, namespace, service string, opts LogOptions) {
+	pods, err := GetServicePods(namespace, service)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\ntrying again in 10 seconds...\n", err)
+		return
+	}
+	if len(pods) == 0 {
+		fmt.Fprintf(os.Stderr, "There are no pods for service %s", service)
+		return
+	}
+	for _, pod := range pods {
+		if activePods.has(pod) {
+			continue
+		}
+		if err := tailPod(activePods, namespace, pod, opts); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to tail pod %s: %v\n", pod, err)
+		}
+	}
+}
+
+func tailPod(activePods *podList, namespace, pod string, opts LogOptions) error {
 	args := []string{"logs", pod, "-f", "-n", namespace}
 	if opts.Timestamps {
 		args = append(args, "--timestamps")
