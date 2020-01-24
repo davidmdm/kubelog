@@ -30,7 +30,7 @@ myNamespace
 
 ### Tail Service Logs
 ```
-kubelog -n namespace service [service2, [service3, [...]]]
+kubelog -n namespace tail service [service2, [service3, [...]]]
 ```
 
 options:
@@ -43,5 +43,5 @@ options:
 If you want to tail all services in a namespace simply pass "*" as sole argument. 
 
 ```
-kubelog -n namespace "*"
+kubelog -n namespace tail "*"
 ```

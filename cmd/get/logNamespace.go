@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -6,11 +6,33 @@ import (
 	"sync"
 
 	"github.com/davidmdm/kubelog/kubectl"
+	"github.com/spf13/cobra"
 )
 
 // LogNamespace will log apps for a namespace. If an empty string is provided as namespace
 // it will log all apps for all namespaces
-func LogNamespace(name string) error {
+
+// GetCommand is my command
+var GetCommand = &cobra.Command{
+	Use:  "get [resource]",
+	Args: cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if args[0] != "svc" && args[0] != "services" {
+			return fmt.Errorf("resource not supported %s, use services or svc", args[0])
+		}
+		namespace, err := cmd.Flags().GetString("namespace")
+		if err != nil {
+			return err
+		}
+		return logNamespace(namespace)
+	},
+}
+
+func init() {
+	GetCommand.Flags().StringP("namespace", "n", "", "kubectl namespace to use, if not provided will run for all namespaces")
+}
+
+func logNamespace(name string) error {
 	var namespaceNames []string
 	if name == "" {
 		names, err := kubectl.GetNamespaceNames()
