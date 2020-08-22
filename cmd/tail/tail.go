@@ -22,7 +22,7 @@ var TailCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		labelPrefix, err := cmd.Flags().GetString("label-prefix")
+		labelPrefix, err := cmd.Flags().GetString("prefix")
 		if err != nil {
 			return err
 		}
