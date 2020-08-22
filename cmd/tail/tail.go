@@ -1,6 +1,8 @@
 package tail
 
 import (
+	"fmt"
+
 	"github.com/davidmdm/kubelog/kubectl"
 	"github.com/spf13/cobra"
 )
@@ -42,7 +44,7 @@ func init() {
 func tail(namespace string, labels []string, opts kubectl.LogOptions) error {
 	for _, label := range labels {
 		if opts.LabelPrefix != "" {
-			label = opts.LabelPrefix + "=" + label
+			label = fmt.Sprintf("%s=%s", opts.LabelPrefix, label)
 		}
 		go kubectl.TailLogs(namespace, label, opts)
 	}
