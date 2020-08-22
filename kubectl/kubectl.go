@@ -50,7 +50,7 @@ func GetServicesByNamespace(name string) ([]string, error) {
 
 // GetServicePods gets all podname for a label
 func getPodsByLabel(n, label string) ([]string, error) {
-	output, err := exec.Command("kubectl", "-n", n, "get", "pods", "-l", label, "-o", `jsonpath="{.items[*].metadata.name}"`).Output()
+	output, err := exec.Command("kubectl", "-n", n, "get", "pods", "-l", label, "-o", `jsonpath={.items[*].metadata.name}`).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods using label %s: %v", label, err)
 	}
