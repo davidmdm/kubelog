@@ -33,7 +33,7 @@ var TailCmd = &cobra.Command{
 func init() {
 	TailCmd.Flags().StringP("namespace", "n", "", "kubectl namespace to use")
 	TailCmd.MarkFlagRequired("namespace")
-	TailCmd.Flags().StringP("label-prefix", "lp", "", "prepends a prefix and equal sign to all passed input labels")
+	TailCmd.Flags().StringP("prefix", "p", "", "prepends a prefix and equal sign to all passed input labels")
 
 	TailCmd.Flags().StringP("since", "s", "", "kubectl since option for logs")
 	TailCmd.Flags().BoolP("timestamp", "t", false, "kubectl timestamp option for logs")
