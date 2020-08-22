@@ -7,7 +7,7 @@ import (
 
 // TailCmd is the command to tail
 var TailCmd = &cobra.Command{
-	Use:  "tail [services...]",
+	Use:  "tail [labels...]",
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		namespace, err := cmd.Flags().GetString("namespace")
@@ -34,17 +34,9 @@ func init() {
 	TailCmd.Flags().BoolP("timestamp", "t", false, "kubectl timestamp option for logs")
 }
 
-func tail(namespace string, services []string, opts kubectl.LogOptions) error {
-	if len(services) == 1 && services[0] == "*" {
-		svcs, err := kubectl.GetServicesByNamespace(namespace)
-		if err != nil {
-			return err
-		}
-		services = svcs
-	}
-
-	for _, service := range services {
-		go kubectl.TailLogs(namespace, service, opts)
+func tail(namespace string, labels []string, opts kubectl.LogOptions) error {
+	for _, label := range labels {
+		go kubectl.TailLogs(namespace, label, opts)
 	}
 
 	// at this point we never want to return since we want to monitor the logs forever

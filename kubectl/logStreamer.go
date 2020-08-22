@@ -18,22 +18,22 @@ type LogOptions struct {
 }
 
 // TailLogs will start outputting all logs to stdout for a every pod in the given service for a specific namespace
-func TailLogs(namespace, service string, opts LogOptions) {
+func TailLogs(namespace, label string, opts LogOptions) {
 	activePods := new(podList)
-	monitorPods(activePods, namespace, service, opts)
+	monitorPods(activePods, namespace, label, opts)
 	for range time.NewTicker(10 * time.Second).C {
-		monitorPods(activePods, namespace, service, opts)
+		monitorPods(activePods, namespace, label, opts)
 	}
 }
 
-func monitorPods(activePods *podList, namespace, service string, opts LogOptions) {
-	pods, err := GetServicePods(namespace, service)
+func monitorPods(activePods *podList, namespace, label string, opts LogOptions) {
+	pods, err := getPodsByLabel(namespace, label)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\ntrying again in 10 seconds...\n", err)
 		return
 	}
 	if len(pods) == 0 {
-		fmt.Fprintf(os.Stderr, "There are no pods for service %s", service)
+		fmt.Fprintf(os.Stderr, "There are no pods for label %s", label)
 		return
 	}
 	for _, pod := range pods {
