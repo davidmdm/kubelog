@@ -13,8 +13,9 @@ import (
 // LogOptions sets whether the logs should include a timestamp and how far back since now we need to fetch the logs.
 // by default there are no timestamps and logs will be fetched since their beginning.
 type LogOptions struct {
-	Timestamps bool
-	Since      string
+	Timestamps  bool
+	Since       string
+	LabelPrefix string
 }
 
 // TailLogs will start outputting all logs to stdout for a every pod in the given service for a specific namespace

@@ -22,13 +22,18 @@ var TailCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return tail(namespace, args, kubectl.LogOptions{Timestamps: timestamp, Since: since})
+		labelPrefix, err := cmd.Flags().GetString("label-prefix")
+		if err != nil {
+			return err
+		}
+		return tail(namespace, args, kubectl.LogOptions{Timestamps: timestamp, Since: since, LabelPrefix: labelPrefix})
 	},
 }
 
 func init() {
 	TailCmd.Flags().StringP("namespace", "n", "", "kubectl namespace to use")
 	TailCmd.MarkFlagRequired("namespace")
+	TailCmd.Flags().StringP("label-prefix", "lp", "", "prepends a prefix and equal sign to all passed input labels")
 
 	TailCmd.Flags().StringP("since", "s", "", "kubectl since option for logs")
 	TailCmd.Flags().BoolP("timestamp", "t", false, "kubectl timestamp option for logs")
@@ -36,6 +41,9 @@ func init() {
 
 func tail(namespace string, labels []string, opts kubectl.LogOptions) error {
 	for _, label := range labels {
+		if opts.LabelPrefix != "" {
+			label = opts.LabelPrefix + "=" + label
+		}
 		go kubectl.TailLogs(namespace, label, opts)
 	}
 
