@@ -19,26 +19,25 @@ type LabeledResource struct {
 }
 
 func (lr LabeledResource) String() string {
-	return fmt.Sprintf("%s   %s", lr.Name, strings.Join(lr.Labels, " "))
+	return fmt.Sprintf("%s\n%s%s", lr.Name, indent+indent, strings.Join(lr.Labels, "\n"+indent+indent))
 }
 
 // Namespace represents a kubectl namespace. The name and the apps within it.
 type Namespace struct {
-	Name        string
-	Services    []LabeledResource
-	Deployments []LabeledResource
+	Name      string
+	Resources []LabeledResource
 }
 
 // String satisfies the stringer interface.
 func (n Namespace) String() string {
-	if len(n.Services) == 0 {
+	if len(n.Resources) == 0 {
 		return fmt.Sprintf("%s\n%s%s", color.Cyan(n.Name), indent, color.Yellow("(empty)"))
 	}
-	serviceStrings := make([]string, len(n.Services))
-	for i := range n.Services {
-		serviceStrings[i] = n.Services[i].String()
+	resourceStrings := make([]string, len(n.Resources))
+	for i := range n.Resources {
+		resourceStrings[i] = n.Resources[i].String()
 	}
-	return fmt.Sprintf("%s\n%s%s", color.Cyan(n.Name), indent, strings.Join(serviceStrings, "\n"+indent))
+	return fmt.Sprintf("%s\n%s%s", color.Cyan(n.Name), indent, strings.Join(resourceStrings, "\n"+indent))
 }
 
 // GetNamespaceNames returns all namespace for your kube config

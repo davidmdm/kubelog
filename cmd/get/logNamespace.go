@@ -56,7 +56,7 @@ func logNamespace(ns, kind string) error {
 			if err != nil {
 				errors = append(errors, fmt.Errorf("error fetching namespace %s: %v", name, err))
 			} else {
-				results = append(results, &kubectl.Namespace{Name: name, Services: services})
+				results = append(results, &kubectl.Namespace{Name: name, Resources: services})
 			}
 			wg.Done()
 		}(name)
