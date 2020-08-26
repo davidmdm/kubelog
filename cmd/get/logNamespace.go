@@ -17,14 +17,11 @@ var GetCommand = &cobra.Command{
 	Use:  "get [resource]",
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if args[0] != "svc" && args[0] != "services" {
-			return fmt.Errorf("resource not supported %s, use services or svc", args[0])
-		}
 		namespace, err := cmd.Flags().GetString("namespace")
 		if err != nil {
 			return err
 		}
-		return logNamespace(namespace)
+		return logNamespace(namespace, args[0])
 	},
 }
 
@@ -32,16 +29,16 @@ func init() {
 	GetCommand.Flags().StringP("namespace", "n", "", "kubectl namespace to use, if not provided will run for all namespaces")
 }
 
-func logNamespace(name string) error {
+func logNamespace(ns, kind string) error {
 	var namespaceNames []string
-	if name == "" {
+	if ns == "" {
 		names, err := kubectl.GetNamespaceNames()
 		if err != nil {
 			return fmt.Errorf("failed to fetch namespaces: %v", err)
 		}
 		namespaceNames = names
 	} else {
-		namespaceNames = append(namespaceNames, name)
+		namespaceNames = append(namespaceNames, ns)
 	}
 
 	results := []*kubectl.Namespace{}
@@ -53,7 +50,7 @@ func logNamespace(name string) error {
 	for _, name := range namespaceNames {
 		wg.Add(1)
 		go func(name string) {
-			services, err := kubectl.GetServicesByNamespace(name)
+			services, err := kubectl.GetResourcesByNamespace(name, kind)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
