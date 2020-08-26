@@ -117,11 +117,11 @@ func getResourceLabels(ns, kind, id string) ([]string, error) {
 	}
 
 	md := payload["metadata"].(map[string]interface{})
-	labels := md["labels"].(map[string]string)
+	labels := md["labels"].(map[string]interface{})
 
 	result := []string{}
 	for key, value := range labels {
-		result = append(result, key+"="+value)
+		result = append(result, key+"="+value.(string))
 	}
 
 	sort.SliceStable(result, func(i, j int) bool {
