@@ -115,6 +115,14 @@ func getResourceLabels(ns, kind, id string) ([]string, error) {
 		return nil, err
 	}
 
+	if isServiceKind(kind) {
+		return getServiceLabels(payload), nil
+	}
+
+	if isDeploymentKind(kind) {
+		return getDeploymentLabels(payload), nil
+	}
+
 	md := payload["metadata"].(map[string]interface{})
 	labels := md["labels"].(map[string]interface{})
 
@@ -130,11 +138,43 @@ func getResourceLabels(ns, kind, id string) ([]string, error) {
 	return result, nil
 }
 
+func getServiceLabels(definition map[string]interface{}) []string {
+	spec := definition["spec"].(map[string]interface{})
+	selector := spec["selector"].(map[string]interface{})
+	result := []string{}
+	for key, value := range selector {
+		result = append(result, key+"="+value.(string))
+	}
+	return result
+}
+
+func getDeploymentLabels(definition map[string]interface{}) []string {
+	spec := definition["spec"].(map[string]interface{})
+	selector := spec["selector"].(map[string]interface{})
+	matchLabels := selector["matchLabels"].(map[string]interface{})
+	result := []string{}
+	for key, value := range matchLabels {
+		result = append(result, key+"="+value.(string))
+	}
+	return result
+}
+
+func isServiceKind(kind string) bool {
+	return kind == "svc" || kind == "service" || kind == "services"
+}
+
+func isDeploymentKind(kind string) bool {
+	return kind == "deploy" || kind == "deployment" || kind == "deployments"
+}
+
 // GetServicePods gets all podname for a label
 func getPodsByLabel(n, label string) ([]string, error) {
-	output, err := exec.Command("kubectl", "-n", n, "get", "pods", "-l", label, "-o", `jsonpath={.items[*].metadata.name}`).Output()
+	output, err := exec.Command("kubectl", "-n", n, "get", "pods", "--selector", label, "-o", `jsonpath={.items[*].metadata.name}`).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods using label %s: %v", label, err)
+	}
+	if len(output) == 0 {
+		return nil, nil
 	}
 	return strings.Split(string(output), " "), nil
 }

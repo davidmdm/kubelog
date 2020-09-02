@@ -2,7 +2,9 @@ package kubectl
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"time"
@@ -34,7 +36,7 @@ func monitorPods(activePods *podList, namespace, label string, opts LogOptions) 
 		return
 	}
 	if len(pods) == 0 {
-		fmt.Fprintf(os.Stderr, "There are no pods for label %s", label)
+		fmt.Fprintf(os.Stderr, "There are no pods for label %s\n", label)
 		return
 	}
 	for _, pod := range pods {
@@ -42,7 +44,7 @@ func monitorPods(activePods *podList, namespace, label string, opts LogOptions) 
 			continue
 		}
 		if err := tailPod(activePods, namespace, pod, opts); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to tail pod %s: %v\n", pod, err)
+			fmt.Fprintf(os.Stderr, "failed to tail pod \"%s\": %v\n", pod, err)
 		}
 	}
 }
@@ -76,7 +78,11 @@ func tailPod(activePods *podList, namespace, pod string, opts LogOptions) error 
 		for {
 			line, err := r.ReadString('\n')
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\nunexpected error reading log for pod %s: %v\n\n", pod, err)
+				if errors.Is(err, io.EOF) {
+					fmt.Printf("%s  %s", prefix, line+" - EOF\n")
+				} else {
+					fmt.Fprintf(os.Stderr, "\nunexpected error reading log for pod %s: %v\n\n", pod, err)
+				}
 				activePods.remove(pod)
 				return
 			}
