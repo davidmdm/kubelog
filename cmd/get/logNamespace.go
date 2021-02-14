@@ -12,21 +12,22 @@ import (
 // LogNamespace will log apps for a namespace. If an empty string is provided as namespace
 // it will log all apps for all namespaces
 
-// GetCommand is my command
-var GetCommand = &cobra.Command{
-	Use:  "get [resource]",
-	Args: cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		namespace, err := cmd.Flags().GetString("namespace")
-		if err != nil {
-			return err
-		}
-		return logNamespace(namespace, args[0])
-	},
-}
+func Cmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:  "get [resource]",
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			namespace, err := cmd.Flags().GetString("namespace")
+			if err != nil {
+				return err
+			}
+			return logNamespace(namespace, args[0])
+		},
+	}
 
-func init() {
-	GetCommand.Flags().StringP("namespace", "n", "", "kubectl namespace to use, if not provided will run for all namespaces")
+	cmd.Flags().StringP("namespace", "n", "", "kubectl namespace to use, if not provided will run for all namespaces")
+
+	return cmd
 }
 
 func logNamespace(ns, kind string) error {
