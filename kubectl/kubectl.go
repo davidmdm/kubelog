@@ -167,14 +167,53 @@ func isDeploymentKind(kind string) bool {
 	return kind == "deploy" || kind == "deployment" || kind == "deployments"
 }
 
+type podSummary struct {
+	name       string
+	containers []string
+}
+
+func (ps podSummary) expand() []string {
+	if len(ps.containers) == 0 {
+		return []string{ps.name}
+	}
+
+	var result []string
+	for _, c := range ps.containers {
+		result = append(result, ps.name+"/"+c)
+	}
+
+	return result
+}
+
 // GetServicePods gets all podname for a label
-func getPodsByLabel(n, label string) ([]string, error) {
-	output, err := exec.Command("kubectl", "-n", n, "get", "pods", "--selector", label, "-o", `jsonpath={.items[*].metadata.name}`).Output()
+func getPodsByLabel(n, label string) ([]podSummary, error) {
+	args := []string{"-n", n, "get", "pods", "-o", `jsonpath={.items[*].metadata.name}`}
+	if label != "all" {
+		args = append(args, "--selector", label)
+	}
+
+	output, err := exec.Command("kubectl", args...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods using label %s: %v", label, err)
 	}
 	if len(output) == 0 {
 		return nil, nil
 	}
-	return strings.Split(string(output), " "), nil
+
+	var pods []podSummary
+	for _, pod := range strings.Split(string(output), " ") {
+		output, err := exec.Command("kubectl", "-n", n, "get", "pods", pod, "-o", "jsonpath={.spec.containers[*].name}").CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", err, output)
+		}
+
+		containers := strings.Split(string(output), " ")
+
+		pods = append(pods, podSummary{
+			name:       pod,
+			containers: containers,
+		})
+	}
+
+	return pods, nil
 }

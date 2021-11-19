@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/davidmdm/kubelog/util/color"
@@ -35,22 +36,30 @@ func monitorPods(activePods *podList, namespace, label string, opts LogOptions) 
 		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\ntrying again in 10 seconds...\n", err)
 		return
 	}
+
 	if len(pods) == 0 {
 		fmt.Fprintf(os.Stderr, "There are no pods for label %s\n", label)
 		return
 	}
 	for _, pod := range pods {
-		if activePods.has(pod) {
-			continue
-		}
-		if err := tailPod(activePods, namespace, pod, opts); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to tail pod \"%s\": %v\n", pod, err)
+		for _, podcontainer := range pod.expand() {
+			if activePods.has(podcontainer) {
+				continue
+			}
+			if err := tailPod(activePods, namespace, podcontainer, opts); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to tail pod \"%s\": %v\n", pod, err)
+			}
 		}
 	}
 }
 
 func tailPod(activePods *podList, namespace, pod string, opts LogOptions) error {
-	args := []string{"logs", pod, "-f", "-n", namespace}
+	options := []string{"-f", "-n", namespace}
+	podSegments := strings.Split(pod, "/")
+
+	args := append([]string{"logs"}, podSegments...)
+	args = append(args, options...)
+
 	if opts.Timestamps {
 		args = append(args, "--timestamps")
 	}
