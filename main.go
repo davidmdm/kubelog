@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/davidmdm/kubelog/cmd"
+	"github.com/davidmdm/kubelog/internal/cmd"
 )
 
 func main() {

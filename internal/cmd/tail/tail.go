@@ -3,7 +3,7 @@ package tail
 import (
 	"fmt"
 
-	"github.com/davidmdm/kubelog/kubectl"
+	"github.com/davidmdm/kubelog/internal/kubectl"
 	"github.com/spf13/cobra"
 )
 

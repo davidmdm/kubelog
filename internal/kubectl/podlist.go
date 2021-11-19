@@ -3,7 +3,7 @@ package kubectl
 import (
 	"sync"
 
-	"github.com/davidmdm/kubelog/util"
+	"github.com/davidmdm/kubelog/internal/util"
 )
 
 // podList list is a threadsafe list of pods

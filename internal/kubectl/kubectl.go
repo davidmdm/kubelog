@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/davidmdm/kubelog/util/color"
+	"github.com/davidmdm/kubelog/internal/util/color"
 )
 
 const indent = "  "

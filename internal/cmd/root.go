@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/davidmdm/kubelog/cmd/get"
-	"github.com/davidmdm/kubelog/cmd/tail"
+	"github.com/davidmdm/kubelog/internal/cmd/get"
+	"github.com/davidmdm/kubelog/internal/cmd/tail"
 	"github.com/spf13/cobra"
 )
 

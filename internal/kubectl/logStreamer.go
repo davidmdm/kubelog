@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidmdm/kubelog/util/color"
+	"github.com/davidmdm/kubelog/internal/util/color"
 )
 
 // LogOptions sets whether the logs should include a timestamp and how far back since now we need to fetch the logs.
