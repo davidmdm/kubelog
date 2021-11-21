@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/davidmdm/kubelog/internal/cmd/get"
 	"github.com/davidmdm/kubelog/internal/cmd/tail"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +15,7 @@ func New() *cobra.Command {
 	}
 
 	cmd.AddCommand(tail.Cmd())
-	// cmd.AddCommand(get.Cmd())
+	cmd.AddCommand(get.Cmd())
 
 	return cmd
 }
