@@ -149,3 +149,7 @@ func (ctl K8Ctl) WatchPods(ctx context.Context, namespace string, labelSelector 
 
 	return podEvents, nil
 }
+
+func (ctl K8Ctl) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
+	return ctl.clientSet.CoreV1().Pods(namespace).Get(ctx, name, v1.GetOptions{})
+}

@@ -7,7 +7,14 @@ import (
 // set is a threadsafe set of strings
 type set struct {
 	set map[string]struct{}
-	mu  sync.RWMutex
+	mu  *sync.RWMutex
+}
+
+func makeSet() set {
+	return set{
+		set: make(map[string]struct{}),
+		mu:  new(sync.RWMutex),
+	}
 }
 
 // add adds a value to the set. Returns true if a new value was added to the set.
