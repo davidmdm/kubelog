@@ -1,219 +1,151 @@
 package kubectl
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"os/exec"
-	"sort"
-	"strings"
-	"sync"
+	"io"
+	"path/filepath"
+	"time"
 
-	"github.com/davidmdm/kubelog/internal/util/color"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 )
 
-const indent = "  "
-
-type LabeledResource struct {
-	Name   string
-	Labels []string
+type K8Ctl struct {
+	clientSet *kubernetes.Clientset
 }
 
-func (lr LabeledResource) String() string {
-	return fmt.Sprintf("%s\n%s%s", lr.Name, indent+indent, strings.Join(lr.Labels, "\n"+indent+indent))
-}
-
-// Namespace represents a kubectl namespace. The name and the apps within it.
-type Namespace struct {
-	Name      string
-	Resources []LabeledResource
-}
-
-// String satisfies the stringer interface.
-func (n Namespace) String() string {
-	if len(n.Resources) == 0 {
-		return fmt.Sprintf("%s\n%s%s", color.Cyan(n.Name), indent, color.Yellow("(empty)"))
-	}
-	resourceStrings := make([]string, len(n.Resources))
-	for i := range n.Resources {
-		resourceStrings[i] = n.Resources[i].String()
-	}
-	return fmt.Sprintf("%s\n%s%s", color.Cyan(n.Name), indent, strings.Join(resourceStrings, "\n"+indent))
-}
-
-// GetNamespaceNames returns all namespace for your kube config
-func GetNamespaceNames() ([]string, error) {
-	out, err := exec.Command("kubectl", "get", "namespaces", "-o", "jsonpath={.items[*].metadata.name}").Output()
+func NewCtl() (*K8Ctl, error) {
+	cfg, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kubectl namespaces: %v", err)
+		return nil, fmt.Errorf("failed to construct k8 config: %w", err)
 	}
-	return strings.Split(string(out), " "), nil
-}
 
-// GetResourcesByNamespace will return the service names by namespace
-func GetResourcesByNamespace(ns, kind string) ([]LabeledResource, error) {
-	out, err := exec.Command("kubectl", "-n", ns, "get", kind, "-o", "jsonpath={.items[*].metadata.name}").Output()
+	clientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get service names: %v", err)
+		return nil, fmt.Errorf("failed to instantiate k8 clientset: %w", err)
 	}
 
-	resourceNames := []string{}
-	for _, str := range strings.Split(string(out), " ") {
-		if str != "" {
-			resourceNames = append(resourceNames, str)
-		}
-	}
-
-	wg := new(sync.WaitGroup)
-	wg.Add(len(resourceNames))
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	resources := make([]LabeledResource, len(resourceNames))
-	errChan := make(chan error, len(resourceNames))
-	for i := range resourceNames {
-		go func(idx int, name string) {
-			defer wg.Done()
-			if svc, err := getResource(ns, kind, name); err != nil {
-				errChan <- err
-			} else {
-				resources[idx] = *svc
-			}
-		}(i, resourceNames[i])
-	}
-
-	select {
-	case <-done:
-		sort.SliceStable(resources, func(i, j int) bool {
-			return resources[i].Name < resources[j].Name
-		})
-		return resources, nil
-	case err := <-errChan:
-		return nil, err
-	}
-
+	return &K8Ctl{clientSet}, nil
 }
 
-func getResource(ns, kind, serviceName string) (*LabeledResource, error) {
-	labels, err := getResourceLabels(ns, kind, serviceName)
-	if err != nil {
-		return nil, err
-	}
-	return &LabeledResource{Name: serviceName, Labels: labels}, nil
-}
+func (ctl K8Ctl) GetNamespaces(ctx context.Context) ([]corev1.Namespace, error) {
+	var namespaces []corev1.Namespace
+	var continueToken string
 
-func getResourceLabels(ns, kind, id string) ([]string, error) {
-	out, err := exec.Command("kubectl", "-n", ns, "get", kind, id, "-o", "json").Output()
-	if err != nil {
-		return nil, err
-	}
+	for {
+		namespaceList, err := ctl.clientSet.
+			CoreV1().
+			Namespaces().
+			List(ctx, v1.ListOptions{Continue: continueToken})
 
-	var payload map[string]interface{}
-	if err := json.Unmarshal(out, &payload); err != nil {
-		return nil, err
-	}
-
-	if isServiceKind(kind) {
-		return getServiceLabels(payload), nil
-	}
-
-	if isDeploymentKind(kind) {
-		return getDeploymentLabels(payload), nil
-	}
-
-	md := payload["metadata"].(map[string]interface{})
-	labels := md["labels"].(map[string]interface{})
-
-	result := []string{}
-	for key, value := range labels {
-		result = append(result, key+"="+value.(string))
-	}
-
-	sort.SliceStable(result, func(i, j int) bool {
-		return result[i] < result[j]
-	})
-
-	return result, nil
-}
-
-func getServiceLabels(definition map[string]interface{}) []string {
-	spec := definition["spec"].(map[string]interface{})
-	selector := spec["selector"].(map[string]interface{})
-	result := []string{}
-	for key, value := range selector {
-		result = append(result, key+"="+value.(string))
-	}
-	return result
-}
-
-func getDeploymentLabels(definition map[string]interface{}) []string {
-	spec := definition["spec"].(map[string]interface{})
-	selector := spec["selector"].(map[string]interface{})
-	matchLabels := selector["matchLabels"].(map[string]interface{})
-	result := []string{}
-	for key, value := range matchLabels {
-		result = append(result, key+"="+value.(string))
-	}
-	return result
-}
-
-func isServiceKind(kind string) bool {
-	return kind == "svc" || kind == "service" || kind == "services"
-}
-
-func isDeploymentKind(kind string) bool {
-	return kind == "deploy" || kind == "deployment" || kind == "deployments"
-}
-
-type podSummary struct {
-	name       string
-	containers []string
-}
-
-func (ps podSummary) expand() []string {
-	if len(ps.containers) == 0 {
-		return []string{ps.name}
-	}
-
-	var result []string
-	for _, c := range ps.containers {
-		result = append(result, ps.name+"/"+c)
-	}
-
-	return result
-}
-
-// GetServicePods gets all podname for a label
-func getPodsByLabel(n, label string) ([]podSummary, error) {
-	args := []string{"-n", n, "get", "pods", "-o", `jsonpath={.items[*].metadata.name}`}
-	if label != "all" {
-		args = append(args, "--selector", label)
-	}
-
-	output, err := exec.Command("kubectl", args...).Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get pods using label %s: %v", label, err)
-	}
-	if len(output) == 0 {
-		return nil, nil
-	}
-
-	var pods []podSummary
-	for _, pod := range strings.Split(string(output), " ") {
-		output, err := exec.Command("kubectl", "-n", n, "get", "pods", pod, "-o", "jsonpath={.spec.containers[*].name}").CombinedOutput()
 		if err != nil {
-			return nil, fmt.Errorf("%w: %s", err, output)
+			return nil, fmt.Errorf("failed to list namespaces: %w", err)
 		}
 
-		containers := strings.Split(string(output), " ")
+		namespaces = append(namespaces, namespaceList.Items...)
 
-		pods = append(pods, podSummary{
-			name:       pod,
-			containers: containers,
-		})
+		if continueToken = namespaceList.Continue; continueToken == "" {
+			break
+		}
+	}
+
+	return namespaces, nil
+}
+
+func (ctl K8Ctl) GetPods(ctx context.Context, namespace string, labelSelector string) ([]corev1.Pod, error) {
+	var continueToken string
+	var pods []corev1.Pod
+
+	for {
+		podList, err := ctl.clientSet.
+			CoreV1().
+			Pods(namespace).
+			List(ctx, v1.ListOptions{
+				LabelSelector: labelSelector,
+				Continue:      continueToken,
+			})
+
+		if err != nil {
+			return pods, fmt.Errorf("failed to list pods: %w", err)
+		}
+
+		pods = append(pods, podList.Items...)
+
+		if continueToken = podList.Continue; continueToken == "" {
+			break
+		}
 	}
 
 	return pods, nil
+}
+
+type PodLogOptions struct {
+	Container  string
+	Follow     bool
+	Previous   bool
+	Timestamps bool
+	Since      *time.Duration
+}
+
+func (ctl K8Ctl) StreamPodLogs(ctx context.Context, namespace string, name string, opts PodLogOptions) (io.ReadCloser, error) {
+	return ctl.clientSet.
+		CoreV1().
+		Pods(namespace).
+		GetLogs(name, &corev1.PodLogOptions{
+			Container:  opts.Container,
+			Follow:     opts.Follow,
+			Previous:   opts.Previous,
+			Timestamps: opts.Timestamps,
+
+			SinceSeconds: func() *int64 {
+				if opts.Since == nil {
+					return nil
+				}
+				seconds := int64(opts.Since.Seconds())
+				return &seconds
+			}(),
+		}).
+		Stream(ctx)
+}
+
+type PodEvent struct {
+	Type watch.EventType
+	Pod  *corev1.Pod
+}
+
+func (ctl K8Ctl) WatchPods(ctx context.Context, namespace string, labelSelector string) (<-chan PodEvent, error) {
+	watcher, err := ctl.clientSet.
+		CoreV1().
+		Pods(namespace).
+		Watch(ctx, v1.ListOptions{LabelSelector: labelSelector})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to watch pods: %w", err)
+	}
+
+	podEvents := make(chan PodEvent)
+	events := watcher.ResultChan()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				watcher.Stop()
+				return
+			case evt := <-events:
+				pod, ok := evt.Object.(*corev1.Pod)
+				if !ok {
+					continue
+				}
+				podEvents <- PodEvent{Type: evt.Type, Pod: pod}
+			}
+		}
+	}()
+
+	return podEvents, nil
 }

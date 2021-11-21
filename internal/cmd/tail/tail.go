@@ -1,34 +1,28 @@
 package tail
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"io"
 
 	"github.com/davidmdm/kubelog/internal/kubectl"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/watch"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 func Cmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:  "tail [labels...]",
-		Args: cobra.MinimumNArgs(1),
+		Use: "tail [labels...]",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			namespace, err := cmd.Flags().GetString("namespace")
 			if err != nil {
 				return err
 			}
-			since, err := cmd.Flags().GetString("since")
-			if err != nil {
-				return err
-			}
-			timestamp, err := cmd.Flags().GetBool("timestamp")
-			if err != nil {
-				return err
-			}
-			labelPrefix, err := cmd.Flags().GetString("prefix")
-			if err != nil {
-				return err
-			}
-			return tail(namespace, args, kubectl.LogOptions{Timestamps: timestamp, Since: since, LabelPrefix: labelPrefix})
+
+			return tail(cmd.Context(), namespace, args)
 		},
 	}
 
@@ -41,14 +35,81 @@ func Cmd() *cobra.Command {
 	return cmd
 }
 
-func tail(namespace string, labels []string, opts kubectl.LogOptions) error {
-	for _, label := range labels {
-		if opts.LabelPrefix != "" {
-			label = fmt.Sprintf("%s=%s", opts.LabelPrefix, label)
-		}
-		go kubectl.TailLogs(namespace, label, opts)
+func tail(ctx context.Context, namespace string, labels []string) error {
+	ctl, err := kubectl.NewCtl()
+	if err != nil {
+		return fmt.Errorf("failed to connect to kubernetes: %w", err)
 	}
 
-	// at this point we never want to return since we want to monitor the logs forever
-	select {}
+	if len(labels) == 0 {
+		labels = append(labels, "")
+	}
+
+	watchers := make([]<-chan kubectl.PodEvent, len(labels))
+	for _, label := range labels {
+		watcher, err := ctl.WatchPods(ctx, namespace, label)
+		if err != nil {
+			return fmt.Errorf("failed to watch pods: %w", err)
+		}
+		watchers = append(watchers, watcher)
+	}
+
+	podWatcher := JoinChannels(watchers...)
+
+	pods := make(chan *corev1.Pod)
+
+	go func() {
+		for podEvent := range podWatcher {
+			if podEvent.Type != watch.Added || podEvent.Pod == nil {
+				continue
+			}
+			pods <- podEvent.Pod
+		}
+	}()
+
+	output := make(chan string)
+	go func() {
+		for pod := range pods {
+			for _, container := range pod.Spec.Containers {
+				rc, err := ctl.StreamPodLogs(ctx, namespace, pod.Name, kubectl.PodLogOptions{
+					Container:  container.Name,
+					Follow:     true,
+					Previous:   false,
+					Timestamps: false,
+					Since:      nil,
+				})
+				if err != nil {
+					fmt.Printf("failed to stream logs for pod \"%s:%s\": %v\n", pod.Name, container.Name, err)
+					continue
+				}
+
+				go func(rc io.ReadCloser) {
+					defer rc.Close()
+					scanner := bufio.NewScanner(rc)
+					for scanner.Scan() {
+						output <- scanner.Text()
+					}
+					if err := scanner.Err(); err != nil {
+
+					}
+				}(rc)
+			}
+		}
+	}()
+
+	return nil
+}
+
+func JoinChannels[T any](channels ...<-chan T) <-chan T {
+	result := make(chan T)
+
+	for _, c := range channels {
+		go func(c <-chan T) {
+			for t := range c {
+				result <- t
+			}
+		}(c)
+	}
+
+	return result
 }
