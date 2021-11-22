@@ -17,9 +17,10 @@ import (
 
 type K8Ctl struct {
 	clientSet *kubernetes.Clientset
+	namespace string
 }
 
-func NewCtl() (*K8Ctl, error) {
+func NewCtl(namespace string) (*K8Ctl, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags("", filepath.Join(homedir.HomeDir(), ".kube", "config"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct k8 config: %w", err)
@@ -30,7 +31,7 @@ func NewCtl() (*K8Ctl, error) {
 		return nil, fmt.Errorf("failed to instantiate k8 clientset: %w", err)
 	}
 
-	return &K8Ctl{clientSet}, nil
+	return &K8Ctl{clientSet, namespace}, nil
 }
 
 func (ctl K8Ctl) GetNamespaces(ctx context.Context) ([]corev1.Namespace, error) {
@@ -57,14 +58,14 @@ func (ctl K8Ctl) GetNamespaces(ctx context.Context) ([]corev1.Namespace, error) 
 	return namespaces, nil
 }
 
-func (ctl K8Ctl) GetPods(ctx context.Context, namespace string, labelSelector string) ([]corev1.Pod, error) {
+func (ctl K8Ctl) GetPods(ctx context.Context, labelSelector string) ([]corev1.Pod, error) {
 	var continueToken string
 	var pods []corev1.Pod
 
 	for {
 		podList, err := ctl.clientSet.
 			CoreV1().
-			Pods(namespace).
+			Pods(ctl.namespace).
 			List(ctx, v1.ListOptions{
 				LabelSelector: labelSelector,
 				Continue:      continueToken,
@@ -92,10 +93,10 @@ type PodLogOptions struct {
 	Since      *time.Duration
 }
 
-func (ctl K8Ctl) StreamPodLogs(ctx context.Context, namespace string, name string, opts PodLogOptions) (io.ReadCloser, error) {
+func (ctl K8Ctl) StreamPodLogs(ctx context.Context, name string, opts PodLogOptions) (io.ReadCloser, error) {
 	return ctl.clientSet.
 		CoreV1().
-		Pods(namespace).
+		Pods(ctl.namespace).
 		GetLogs(name, &corev1.PodLogOptions{
 			Container:  opts.Container,
 			Follow:     opts.Follow,
@@ -111,6 +112,11 @@ func (ctl K8Ctl) StreamPodLogs(ctx context.Context, namespace string, name strin
 			}(),
 		}).
 		Stream(ctx)
+}
+
+func (ctl K8Ctl) WithNamespace(namespace string) K8Ctl {
+	ctl.namespace = namespace
+	return ctl
 }
 
 type PodEvent struct {
@@ -136,6 +142,7 @@ func (ctl K8Ctl) WatchPods(ctx context.Context, namespace string, labelSelector 
 			select {
 			case <-ctx.Done():
 				watcher.Stop()
+				close(podEvents)
 				return
 			case evt := <-events:
 				pod, ok := evt.Object.(*corev1.Pod)
@@ -150,6 +157,6 @@ func (ctl K8Ctl) WatchPods(ctx context.Context, namespace string, labelSelector 
 	return podEvents, nil
 }
 
-func (ctl K8Ctl) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
-	return ctl.clientSet.CoreV1().Pods(namespace).Get(ctx, name, v1.GetOptions{})
+func (ctl K8Ctl) GetPod(ctx context.Context, name string) (*corev1.Pod, error) {
+	return ctl.clientSet.CoreV1().Pods(ctl.namespace).Get(ctx, name, v1.GetOptions{})
 }

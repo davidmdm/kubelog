@@ -1,12 +1,14 @@
-package get
+package list
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
+	"github.com/davidmdm/kubelog/internal/cmd"
 	"github.com/davidmdm/kubelog/internal/color"
 	"github.com/davidmdm/kubelog/internal/kubectl"
+	"github.com/davidmdm/kubelog/internal/terminal"
 	"github.com/spf13/cobra"
 )
 
@@ -31,12 +33,20 @@ func Cmd() *cobra.Command {
 }
 
 func listPods(ctx context.Context, namespace string, filters []string) error {
-	ctl, err := kubectl.NewCtl()
+	ctl, err := kubectl.NewCtl(namespace)
 	if err != nil {
 		return fmt.Errorf("failed to connect to kubernetes: %w", err)
 	}
 
-	pods, err := ctl.GetPods(ctx, namespace, "")
+	if namespace == "" {
+		namespace, err = cmd.SelectNamespace(ctx, ctl)
+		if err != nil {
+			return err
+		}
+		*ctl = ctl.WithNamespace(namespace)
+	}
+
+	pods, err := ctl.GetPods(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to list pods: %w", err)
 	}
@@ -46,11 +56,11 @@ func listPods(ctx context.Context, namespace string, filters []string) error {
 			continue
 		}
 
-		fmt.Println(color.Cyan(pod.Name))
+		terminal.Println(color.Cyan(pod.Name))
 		for k, v := range pod.Labels {
-			fmt.Printf("  %s=%s\n", strings.TrimSpace(k), strings.TrimSpace(v))
+			terminal.Printf("  %s=%s\n", strings.TrimSpace(k), strings.TrimSpace(v))
 		}
-		fmt.Println()
+		terminal.Println()
 	}
 
 	return nil

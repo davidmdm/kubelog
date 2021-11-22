@@ -1,15 +1,32 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
+	"os/signal"
 
 	"github.com/davidmdm/kubelog/internal/cmd"
+	"github.com/davidmdm/kubelog/internal/cmd/list"
+	"github.com/davidmdm/kubelog/internal/cmd/tail"
+
+	"github.com/davidmdm/kubelog/internal/terminal"
 )
 
 func main() {
-	if err := cmd.New().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+
+	root := cmd.New()
+	root.AddCommand(list.Cmd())
+	root.AddCommand(tail.Cmd())
+
+	if err := root.ExecuteContext(ctx); err != nil {
+		terminal.PrintErrf("error running command: %v\n", err)
 		os.Exit(1)
 	}
 }

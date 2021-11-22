@@ -7,9 +7,13 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/davidmdm/kubelog/internal/kubectl"
+	"github.com/davidmdm/kubelog/internal/terminal"
+
+	"github.com/davidmdm/kubelog/internal/cmd"
 
 	"github.com/davidmdm/kubelog/internal/color"
 	"github.com/spf13/cobra"
@@ -66,7 +70,6 @@ func Cmd() *cobra.Command {
 		},
 	}
 
-	cmd.MarkFlagRequired("namespace")
 	cmd.Flags().StringP("namespace", "n", "", "kubectl namespace to use")
 	cmd.Flags().StringP("since", "s", "", "a duration representing the logs since now you are interested in")
 	cmd.Flags().BoolP("timestamp", "t", false, "include timestamps in logs")
@@ -77,9 +80,17 @@ func Cmd() *cobra.Command {
 }
 
 func tail(ctx context.Context, namespace string, labels []string, opts kubectl.PodLogOptions) error {
-	ctl, err := kubectl.NewCtl()
+	ctl, err := kubectl.NewCtl(namespace)
 	if err != nil {
 		return fmt.Errorf("failed to connect to kubernetes: %w", err)
+	}
+
+	if namespace == "" {
+		namespace, err = cmd.SelectNamespace(ctx, ctl)
+		if err != nil {
+			return err
+		}
+		*ctl = ctl.WithNamespace(namespace)
 	}
 
 	if len(labels) == 0 {
@@ -87,12 +98,12 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 	}
 
 	watchers := make([]<-chan kubectl.PodEvent, len(labels))
-	for _, label := range labels {
+	for i, label := range labels {
 		watcher, err := ctl.WatchPods(ctx, namespace, label)
 		if err != nil {
 			return fmt.Errorf("failed to watch pods: %w", err)
 		}
-		watchers = append(watchers, watcher)
+		watchers[i] = watcher
 	}
 
 	podWatcher := JoinChannels(watchers...)
@@ -106,17 +117,28 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 			}
 			pods <- podEvent.Pod
 		}
+		close(pods)
 	}()
 
 	set := makeSet()
 	output := make(chan string)
 
+	done := make(chan struct{})
+	wg := sync.WaitGroup{}
+
 	go func() {
+		<-done
+		wg.Wait()
+		close(output)
+	}()
+
+	go func() {
+		defer close(done)
 		for pod := range pods {
 			go func(pod *corev1.Pod) {
 				if pod.Status.Phase == corev1.PodPending {
 					err := wait.PollImmediate(time.Second, 20*time.Second, func() (done bool, err error) {
-						p, err := ctl.GetPod(ctx, namespace, pod.Name)
+						p, err := ctl.GetPod(ctx, pod.Name)
 						if err != nil {
 							return false, err
 						}
@@ -124,7 +146,7 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 					})
 
 					if err != nil {
-						fmt.Printf("failed to poll pod: %v", err)
+						terminal.PrintErrf("failed to poll pod: %v\n", err)
 						return
 					}
 				}
@@ -140,9 +162,9 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 					opts := opts
 					opts.Container = container.Name
 
-					rc, err := ctl.StreamPodLogs(ctx, namespace, pod.Name, opts)
+					rc, err := ctl.StreamPodLogs(ctx, pod.Name, opts)
 					if err != nil {
-						fmt.Printf("failed to stream logs for pod \"%s:%s\": %v\n", pod.Name, container.Name, err)
+						terminal.PrintErrf("failed to stream logs for pod \"%s:%s\": %v\n", pod.Name, container.Name, err)
 						continue
 					}
 
@@ -153,7 +175,9 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 
 					prefix = color.Color(prefix)
 
+					wg.Add(1)
 					go func(rc io.ReadCloser, key, prefix string) {
+						defer wg.Done()
 						defer rc.Close()
 						defer set.remove(key)
 						r := bufio.NewReader(rc)
@@ -162,7 +186,7 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 							line, err := r.ReadString('\n')
 							output <- fmt.Sprintf("%s  %s", prefix, line)
 							if err != nil {
-								fmt.Printf("%s  cannot continue reading: %v\n", prefix, err)
+								terminal.PrintErrf("%s  cannot continue reading: %v\n", prefix, err)
 								return
 							}
 						}
@@ -181,14 +205,22 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 
 func JoinChannels[T any](channels ...<-chan T) <-chan T {
 	result := make(chan T)
+	wg := new(sync.WaitGroup)
 
 	for _, c := range channels {
+		wg.Add(1)
 		go func(c <-chan T) {
+			defer wg.Done()
 			for t := range c {
 				result <- t
 			}
 		}(c)
 	}
+
+	go func() {
+		wg.Wait()
+		close(result)
+	}()
 
 	return result
 }
