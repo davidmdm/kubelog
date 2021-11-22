@@ -124,10 +124,10 @@ type PodEvent struct {
 	Pod  *corev1.Pod
 }
 
-func (ctl K8Ctl) WatchPods(ctx context.Context, namespace string, labelSelector string) (<-chan PodEvent, error) {
+func (ctl K8Ctl) WatchPods(ctx context.Context, labelSelector string) (<-chan PodEvent, error) {
 	watcher, err := ctl.clientSet.
 		CoreV1().
-		Pods(namespace).
+		Pods(ctl.namespace).
 		Watch(ctx, v1.ListOptions{LabelSelector: labelSelector})
 
 	if err != nil {

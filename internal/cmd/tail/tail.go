@@ -100,7 +100,7 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 
 	watchers := make([]<-chan kubectl.PodEvent, len(labels))
 	for i, label := range labels {
-		watcher, err := ctl.WatchPods(ctx, namespace, label)
+		watcher, err := ctl.WatchPods(ctx, label)
 		if err != nil {
 			return fmt.Errorf("failed to watch pods: %w", err)
 		}

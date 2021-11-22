@@ -3,6 +3,7 @@ package list
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/davidmdm/kubelog/internal/cmd"
@@ -56,11 +57,13 @@ func listPods(ctx context.Context, namespace string, filters []string) error {
 			continue
 		}
 
-		terminal.Println(color.Cyan(pod.Name))
+		var labels []string
 		for k, v := range pod.Labels {
-			terminal.Printf("  %s=%s\n", strings.TrimSpace(k), strings.TrimSpace(v))
+			labels = append(labels, fmt.Sprintf("%s=%s", k, v))
 		}
-		terminal.Println()
+		sort.StringSlice(labels).Sort()
+
+		terminal.Printf("%s\n  %s\n\n", color.Cyan(pod.Name), strings.Join(labels, "\n  "))
 	}
 
 	return nil
