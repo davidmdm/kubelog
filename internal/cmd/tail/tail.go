@@ -3,6 +3,7 @@ package tail
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -186,7 +187,9 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 							line, err := r.ReadString('\n')
 							output <- fmt.Sprintf("%s  %s", prefix, line)
 							if err != nil {
-								terminal.PrintErrf("%s  cannot continue reading: %v\n", prefix, err)
+								if !errors.Is(err, context.Canceled) {
+									terminal.PrintErrf("%s  cannot continue reading: %v\n", prefix, err)
+								}
 								return
 							}
 						}
@@ -200,7 +203,7 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 		io.WriteString(os.Stdout, out)
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 func JoinChannels[T any](channels ...<-chan T) <-chan T {

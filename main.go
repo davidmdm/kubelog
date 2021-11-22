@@ -26,7 +26,8 @@ func main() {
 	root.AddCommand(tail.Cmd())
 
 	if err := root.ExecuteContext(ctx); err != nil {
-		terminal.PrintErrf("error running command: %v\n", err)
+		terminal.PrintErrln()
+		terminal.PrintErrln(err)
 		os.Exit(1)
 	}
 }
