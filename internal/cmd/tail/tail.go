@@ -185,7 +185,9 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 
 						for {
 							line, err := r.ReadString('\n')
-							output <- fmt.Sprintf("%s  %s", prefix, line)
+							if line != "" {
+								output <- fmt.Sprintf("%s  %s", prefix, line)
+							}
 							if err != nil {
 								if !errors.Is(err, context.Canceled) {
 									terminal.PrintErrf("%s  cannot continue reading: %v\n", prefix, err)
