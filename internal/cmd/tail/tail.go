@@ -88,11 +88,11 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 	}
 
 	if namespace == "" {
-		namespace, err = cmd.SelectNamespace(ctx, ctl)
+		ns, err := cmd.SelectNamespace(ctx, ctl)
 		if err != nil {
 			return err
 		}
-		*ctl = ctl.WithNamespace(namespace)
+		*ctl = ctl.WithNamespace(ns)
 	}
 
 	if len(labels) == 0 {
@@ -108,14 +108,11 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 		watchers[i] = watcher
 	}
 
-	podWatcher := JoinChannels(watchers...)
-
 	containers := make(chan container)
-
 	streams := MakeSyncMap[time.Time]()
 
 	go func() {
-		for podEvent := range podWatcher {
+		for podEvent := range JoinChannels(watchers...) {
 			if podEvent.Pod == nil {
 				continue
 			}
@@ -139,16 +136,21 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 
 	output := make(chan string)
 	done := make(chan struct{})
+	wg := new(sync.WaitGroup)
 
 	go func() {
 		<-done
+		wg.Wait()
 		close(output)
 	}()
 
 	go func() {
 		defer close(done)
 		for c := range containers {
+			wg.Add(1)
 			go func(c container) {
+				defer wg.Done()
+
 				key := path.Join(c.Pod, c.Container)
 				defer streams.Remove(key)
 
