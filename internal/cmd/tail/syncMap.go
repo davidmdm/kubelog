@@ -22,6 +22,12 @@ func (m SyncMap[T]) PutOrGet(key string, value T) (result T, loaded bool) {
 	return value, false
 }
 
+func (m SyncMap[T]) Put(key string, value T) {
+	m.l.Lock()
+	defer m.l.Unlock()
+	m.m[key] = value
+}
+
 func (m SyncMap[T]) Remove(key string) {
 	m.l.Lock()
 	defer m.l.Unlock()

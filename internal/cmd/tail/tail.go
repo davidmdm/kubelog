@@ -112,7 +112,7 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 
 	containers := make(chan container)
 
-	streams := MakeSyncMap[struct{}]()
+	streams := MakeSyncMap[time.Time]()
 
 	go func() {
 		for podEvent := range podWatcher {
@@ -121,10 +121,15 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 			}
 			for _, c := range podEvent.Pod.Status.ContainerStatuses {
 				key := path.Join(podEvent.Pod.Name, c.Name)
-				if running := c.State.Running; running == nil {
+				running := c.State.Running
+				if running == nil {
 					continue
 				}
-				if _, loaded := streams.PutOrGet(key, struct{}{}); !loaded {
+
+				if value, loaded := streams.PutOrGet(key, running.StartedAt.Time); !loaded {
+					containers <- container{Pod: podEvent.Pod.Name, Container: c.Name}
+				} else if running.StartedAt.Time.After(value) {
+					streams.Put(key, running.StartedAt.Time)
 					containers <- container{Pod: podEvent.Pod.Name, Container: c.Name}
 				}
 			}
