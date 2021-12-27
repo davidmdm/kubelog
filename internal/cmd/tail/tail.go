@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
+	"path"
 	"sync"
 	"time"
 
@@ -18,10 +18,6 @@ import (
 
 	"github.com/davidmdm/kubelog/internal/color"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apimachinery/pkg/watch"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 func Cmd() *cobra.Command {
@@ -80,6 +76,11 @@ func Cmd() *cobra.Command {
 	return cmd
 }
 
+type container struct {
+	Pod       string
+	Container string
+}
+
 func tail(ctx context.Context, namespace string, labels []string, opts kubectl.PodLogOptions) error {
 	ctl, err := kubectl.NewCtl(namespace)
 	if err != nil {
@@ -109,95 +110,70 @@ func tail(ctx context.Context, namespace string, labels []string, opts kubectl.P
 
 	podWatcher := JoinChannels(watchers...)
 
-	pods := make(chan *corev1.Pod)
+	containers := make(chan container)
+
+	streams := MakeSyncMap[struct{}]()
 
 	go func() {
 		for podEvent := range podWatcher {
-			if podEvent.Type != watch.Added || podEvent.Pod == nil {
+			if podEvent.Pod == nil {
 				continue
 			}
-			pods <- podEvent.Pod
+			for _, c := range podEvent.Pod.Status.ContainerStatuses {
+				key := path.Join(podEvent.Pod.Name, c.Name)
+				if running := c.State.Running; running == nil {
+					continue
+				}
+				if _, loaded := streams.PutOrGet(key, struct{}{}); !loaded {
+					containers <- container{Pod: podEvent.Pod.Name, Container: c.Name}
+				}
+			}
 		}
-		close(pods)
+		close(containers)
 	}()
 
-	set := makeSet()
 	output := make(chan string)
-
 	done := make(chan struct{})
-	wg := sync.WaitGroup{}
 
 	go func() {
 		<-done
-		wg.Wait()
 		close(output)
 	}()
 
 	go func() {
 		defer close(done)
-		for pod := range pods {
-			go func(pod *corev1.Pod) {
-				if pod.Status.Phase == corev1.PodPending {
-					err := wait.PollImmediate(time.Second, 20*time.Second, func() (done bool, err error) {
-						p, err := ctl.GetPod(ctx, pod.Name)
-						if err != nil {
-							return false, err
-						}
-						return p.Status.Phase == corev1.PodRunning, nil
-					})
+		for c := range containers {
+			go func(c container) {
+				key := path.Join(c.Pod, c.Container)
+				defer streams.Remove(key)
 
+				// copy opts
+				opts := opts
+				opts.Container = c.Container
+
+				rc, err := ctl.StreamPodLogs(ctx, c.Pod, opts)
+				if err != nil {
+					terminal.PrintErrf("failed to stream logs for pod \"%s:%s\": %v\n", c.Pod, c.Container, err)
+					return
+				}
+				defer rc.Close()
+
+				prefix := color.Color(key)
+				r := bufio.NewReader(rc)
+
+				for {
+					line, err := r.ReadString('\n')
+					if line != "" {
+						output <- fmt.Sprintf("%s  %s", prefix, line)
+					}
 					if err != nil {
-						terminal.PrintErrf("failed to poll pod: %v\n", err)
+						if !errors.Is(err, context.Canceled) {
+							terminal.PrintErrf("%s  cannot continue reading: %v\n", prefix, err)
+						}
 						return
 					}
 				}
-
-				for _, container := range pod.Spec.Containers {
-
-					key := strings.Join([]string{pod.Name, container.Name}, "/")
-					if ok := set.add(key); !ok {
-						continue
-					}
-
-					// copy opts
-					opts := opts
-					opts.Container = container.Name
-
-					rc, err := ctl.StreamPodLogs(ctx, pod.Name, opts)
-					if err != nil {
-						terminal.PrintErrf("failed to stream logs for pod \"%s:%s\": %v\n", pod.Name, container.Name, err)
-						continue
-					}
-
-					prefix := pod.Name
-					if len(pod.Spec.Containers) > 1 {
-						prefix += "/" + container.Name
-					}
-
-					prefix = color.Color(prefix)
-
-					wg.Add(1)
-					go func(rc io.ReadCloser, key, prefix string) {
-						defer wg.Done()
-						defer rc.Close()
-						defer set.remove(key)
-						r := bufio.NewReader(rc)
-
-						for {
-							line, err := r.ReadString('\n')
-							if line != "" {
-								output <- fmt.Sprintf("%s  %s", prefix, line)
-							}
-							if err != nil {
-								if !errors.Is(err, context.Canceled) {
-									terminal.PrintErrf("%s  cannot continue reading: %v\n", prefix, err)
-								}
-								return
-							}
-						}
-					}(rc, key, prefix)
-				}
-			}(pod)
+			}(c)
 		}
 	}()
 
